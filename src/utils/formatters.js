@@ -87,3 +87,55 @@ export function tipoDocumento(documento) {
   if (cleanValue.length === 11) return 'RUC';
   return 'Inválido';
 }
+
+/**
+ * Obtiene la fecha actual en formato corto dd/mm/yy
+ * @returns {string} - Fecha actual en formato dd/mm/yy
+ */
+export function getFechaCorta() {
+  const now = new Date();
+  const dia = String(now.getDate()).padStart(2, '0');
+  const mes = String(now.getMonth() + 1).padStart(2, '0');
+  const anio = String(now.getFullYear()).slice(-2);
+  
+  return `${dia}/${mes}/${anio}`;
+}
+
+/**
+ * Obtiene la fecha actual en formato compacto ddmmyy para OC
+ * @returns {string} - Fecha en formato ddmmyy
+ */
+export function getFechaCompacta() {
+  const now = new Date();
+  const dia = String(now.getDate()).padStart(2, '0');
+  const mes = String(now.getMonth() + 1).padStart(2, '0');
+  const anio = String(now.getFullYear()).slice(-2);
+  
+  return `${dia}${mes}${anio}`;
+}
+
+/**
+ * Formatea fecha de ddmmyyyy a dd/mm/yy para visualización
+ * @param {string} fecha - Fecha en formato ddmmyyyy
+ * @returns {string} - Fecha en formato dd/mm/yy
+ */
+export function formatFechaCorta(fecha) {
+  if (!fecha || fecha.length !== 8) return fecha;
+  
+  const dia = fecha.substring(0, 2);
+  const mes = fecha.substring(2, 4);
+  const anio = fecha.substring(6, 8);
+  
+  return `${dia}/${mes}/${anio}`;
+}
+
+/**
+ * Genera un código de OC automático con patrón OC-{AÑO}-{SECUENCIAL}
+ * @param {number} secuencial - Número secuencial (opcional, default: aleatorio)
+ * @returns {string} - Código OC generado
+ */
+export function generarOCAutomatica(secuencial = null) {
+  const anio = new Date().getFullYear();
+  const seq = secuencial ?? Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  return `OC-${anio}-${seq}`;
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { useDebounce } from './hooks/useDebounce';
-import { formatMoney, calcularCajas, getFechaActual, validarDocumento, tipoDocumento } from './utils/formatters';
+import { formatMoney, calcularCajas, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, generarOCAutomatica } from './utils/formatters';
 import { generateExcelExtended } from './utils/xlsxGenerator';
 
 // Nombre de la base de datos IndexedDB
@@ -166,6 +166,13 @@ function App() {
 
   // Estado para observaciones expandidas
   const [expandedObservations, setExpandedObservations] = useState({});
+
+  // Estado para confirmación de cantidad vacía
+  const [showQuantityConfirm, setShowQuantityConfirm] = useState(null);
+  const [pendingQuantityCodigo, setPendingQuantityCodigo] = useState(null);
+
+  // Estado para modal de confirmación de exportación
+  const [showExportConfirm, setShowExportConfirm] = useState(false);
 
   // Aplicar tema oscuro
   useEffect(() => {
@@ -460,6 +467,13 @@ function App() {
 
   // Actualizar cantidad de producto
   const updateQuantity = (codigo, newQuantity) => {
+    // Si el valor está vacío, mostrar diálogo de confirmación
+    if (newQuantity === '' || newQuantity === null || newQuantity === undefined) {
+      setPendingQuantityCodigo(codigo);
+      setShowQuantityConfirm(true);
+      return;
+    }
+    
     const quantity = Math.max(0, parseInt(newQuantity, 10) || 0);
     
     setSelectedProducts(prev => {
@@ -477,6 +491,33 @@ function App() {
         }
       };
     });
+  };
+
+  // Confirmar eliminación por cantidad vacía
+  const confirmQuantityDelete = () => {
+    if (pendingQuantityCodigo) {
+      const newSelection = { ...selectedProducts };
+      delete newSelection[pendingQuantityCodigo];
+      setSelectedProducts(newSelection);
+    }
+    setShowQuantityConfirm(false);
+    setPendingQuantityCodigo(null);
+  };
+
+  // Cancelar eliminación y restaurar cantidad
+  const cancelQuantityDelete = () => {
+    // Restaurar cantidad a 1
+    if (pendingQuantityCodigo) {
+      setSelectedProducts(prev => ({
+        ...prev,
+        [pendingQuantityCodigo]: {
+          ...prev[pendingQuantityCodigo],
+          cantidad: 1
+        }
+      }));
+    }
+    setShowQuantityConfirm(false);
+    setPendingQuantityCodigo(null);
   };
 
   // Incrementar cantidad
@@ -524,6 +565,14 @@ function App() {
 
   const confirmClear = async () => {
     setSelectedProducts({});
+    // También limpiar los datos del cliente
+    setClientData({
+      ruc: '',
+      nombre: '',
+      oc: '',
+      fecha: getFechaActual(),
+      vendedor: ''
+    });
     await clearStore('seleccion');
     setShowClearConfirm(false);
   };
@@ -544,7 +593,26 @@ function App() {
       return;
     }
 
-    generateExcelExtended(clientData, selectedProductsArray);
+    // Mostrar modal de confirmación
+    setShowExportConfirm(true);
+  };
+
+  // Confirmar y ejecutar exportación
+  const confirmExport = () => {
+    // Auto-generar OC si está vacía usando formato ddmmyy
+    let exportClientData = { ...clientData };
+    if (!clientData.oc.trim()) {
+      const fechaCompacta = getFechaCompacta();
+      exportClientData = {
+        ...clientData,
+        oc: fechaCompacta
+      };
+      // Actualizar el estado para reflejar el cambio
+      setClientData(prev => ({ ...prev, oc: fechaCompacta }));
+    }
+
+    generateExcelExtended(exportClientData, selectedProductsArray);
+    setShowExportConfirm(false);
   };
 
   // Renderizar estado de carga
@@ -672,16 +740,19 @@ function App() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
-                Fecha (ddmmyyyy)
+                Fecha
               </label>
               <input
                 type="text"
                 className="glass-input"
-                placeholder="14022026"
-                value={clientData.fecha}
+                placeholder="dd/mm/aa"
+                value={formatFechaCorta(clientData.fecha)}
                 onChange={(e) => handleClientChange('fecha', e.target.value)}
                 maxLength={8}
               />
+              <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Formato: {getFechaCorta()}
+              </span>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
@@ -741,7 +812,8 @@ function App() {
           {/* Tabla de búsqueda - Solo para agregar productos */}
           {search.trim() && (
             <>
-              <div className="overflow-x-auto max-h-64 overflow-y-auto">
+              {/* Vista Desktop - Tabla completa */}
+              <div className="hidden sm:block overflow-x-auto max-h-64 overflow-y-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 sticky top-0">
                     <tr>
@@ -807,6 +879,65 @@ function App() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Vista Móvil - Lista compacta en una sola línea */}
+              <div className="sm:hidden max-h-80 overflow-y-auto">
+                {filteredProducts.slice(0, 50).map((producto) => {
+                  const selected = isSelected(producto.codigo);
+                  return (
+                    <div
+                      key={producto.codigo}
+                      className={`flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-slate-700 ${
+                        selected ? 'bg-primary-50 dark:bg-primary-900/20' : 'bg-white dark:bg-slate-800'
+                      }`}
+                    >
+                      {/* Código */}
+                      <span className="font-mono font-bold text-primary-600 dark:text-primary-400 min-w-[60px] text-sm">
+                        {producto.codigo}
+                      </span>
+                      {/* Descripción */}
+                      <span className="flex-1 text-xs text-slate-600 dark:text-slate-300 truncate" title={producto.nombre}>
+                        {producto.nombre || '-'}
+                      </span>
+                      {/* U/Caja */}
+                      <span className="text-xs text-slate-500 dark:text-slate-400 min-w-[40px] text-center">
+                        {producto.cantidadPorCaja}/cj
+                      </span>
+                      {/* Botón agregar */}
+                      <button
+                        onClick={() => toggleProduct(producto)}
+                        className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
+                          selected 
+                            ? 'bg-danger-100 dark:bg-danger-900/30 text-danger-600' 
+                            : 'bg-success-100 dark:bg-success-900/30 text-success-600'
+                        }`}
+                        title={selected ? 'Quitar' : 'Agregar'}
+                      >
+                        {selected ? (
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+                {filteredProducts.length === 0 && (
+                  <div className="px-4 py-4 text-center text-slate-500 dark:text-slate-400 text-sm">
+                    No se encontraron productos.
+                    <button
+                      onClick={() => setShowCustomProductForm(true)}
+                      className="ml-2 text-primary-600 underline hover:text-primary-700"
+                    >
+                      Agregar manualmente
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="px-4 py-2 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-500 dark:text-slate-400">
                 {filteredProducts.length > 50 ? 'Mostrando 50 de ' : 'Mostrando '}{filteredProducts.length} productos
@@ -987,6 +1118,7 @@ function App() {
                                 className="w-12 text-center border border-slate-300 dark:border-slate-600 rounded px-1 py-0.5 text-sm dark:bg-slate-700 dark:text-slate-100"
                                 value={producto.cantidad}
                                 onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
+                                onFocus={(e) => e.target.select()}
                                 min="0"
                               />
                               <button
@@ -1066,7 +1198,7 @@ function App() {
             </table>
           </div>
 
-          {/* Vista de Cards para Móvil */}
+          {/* Vista de Cards para Móvil - Rediseñada con 3 bloques */}
           <div className="sm:hidden">
             {selectedProductsArray.length === 0 ? (
               <div className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
@@ -1083,103 +1215,104 @@ function App() {
                   return (
                     <div
                       key={producto.codigo}
-                      className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 shadow-sm"
+                      className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden"
                     >
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-mono font-bold text-slate-800 dark:text-slate-100">
-                            {producto.codigo}
-                          </p>
-                          <p className="text-sm text-slate-600 dark:text-slate-300 truncate">
-                            {nombre}
-                          </p>
+                      {/* BLOQUE 1: IDENTIFICACIÓN */}
+                      <div className="p-4 border-b border-slate-100 dark:border-slate-700">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-mono text-lg font-bold text-primary-600 dark:text-primary-400">
+                              {producto.codigo}
+                            </p>
+                            <p className="text-sm text-slate-700 dark:text-slate-300 mt-1 line-clamp-2 leading-snug" title={nombre}>
+                              {nombre}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              const newSelection = { ...selectedProducts };
+                              delete newSelection[producto.codigo];
+                              setSelectedProducts(newSelection);
+                            }}
+                            className="p-2 text-slate-400 hover:text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded-lg transition-colors"
+                            title="Eliminar producto"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </button>
                         </div>
-                        <button
-                          onClick={() => {
-                            const newSelection = { ...selectedProducts };
-                            delete newSelection[producto.codigo];
-                            setSelectedProducts(newSelection);
-                          }}
-                          className="ml-2 p-2 text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded-lg"
-                          title="Eliminar"
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </div>
-                      
-                      <div className="grid grid-cols-3 gap-2 text-sm mb-3">
-                        <div className="text-center">
-                          <p className="text-slate-500 dark:text-slate-400 text-xs">U/Caja</p>
-                          <p className="font-medium text-slate-800 dark:text-slate-100">{producto.cantidadPorCaja}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-slate-500 dark:text-slate-400 text-xs">Precio</p>
-                          <p className="font-medium text-slate-800 dark:text-slate-100">{formatMoney(producto.precioLista)}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-slate-500 dark:text-slate-400 text-xs">Cajas</p>
-                          <p className="font-medium text-slate-800 dark:text-slate-100">{producto.cajas.toFixed(2)}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg p-2 mb-3">
-                        <button
-                          onClick={() => decrementQuantity(producto.codigo)}
-                          className="btn-icon text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-900/20"
-                          title="Decrementar"
-                        >
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                          </svg>
-                        </button>
-                        <input
-                          type="number"
-                          className="w-20 text-center border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-lg font-medium dark:bg-slate-700 dark:text-slate-100"
-                          value={producto.cantidad}
-                          onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
-                          min="0"
-                        />
-                        <button
-                          onClick={() => incrementQuantity(producto.codigo)}
-                          className="btn-icon text-success-600 hover:bg-success-50 dark:hover:bg-success-900/20"
-                          title="Incrementar"
-                        >
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                        </button>
                       </div>
 
-                      {/* Observación en móvil */}
-                      <div className="border-t border-slate-200 dark:border-slate-700 pt-3">
-                        <button
-                          onClick={() => toggleObservation(producto.codigo)}
-                          className={`flex items-center gap-2 text-sm ${
-                            observacion 
-                              ? 'text-primary-600 font-medium' 
-                              : 'text-slate-500 dark:text-slate-400'
-                          }`}
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                          </svg>
-                          {observacion ? 'Editar observación' : 'Agregar observación'}
-                          {observacion && <span className="text-xs bg-primary-100 dark:bg-primary-900/30 px-1.5 py-0.5 rounded">1</span>}
-                        </button>
-                        
-                        {isExpanded && (
-                          <div className="mt-2">
-                            <textarea
-                              className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 resize-none dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                              rows={2}
-                              placeholder="Escriba una observación..."
-                              value={observacion}
-                              onChange={(e) => updateObservation(producto.codigo, e.target.value)}
-                            />
-                          </div>
-                        )}
+                      {/* BLOQUE 2: DETALLES */}
+                      <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Unidades/Caja</p>
+                          <p className="font-semibold text-slate-800 dark:text-slate-100">{producto.cantidadPorCaja}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Precio de lista <span className="normal-case font-normal">(solo referencia)</span></p>
+                          <p className="font-semibold text-slate-800 dark:text-slate-100">{formatMoney(producto.precioLista)}</p>
+                        </div>
+                      </div>
+
+                      {/* BLOQUE 3: INTERACCIÓN */}
+                      <div className="p-4 space-y-3">
+                        {/* Input de cantidad directo sin botones +/- */}
+                        <div className="flex items-center gap-3">
+                          <label className="text-sm font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                            Cantidad:
+                          </label>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            className="flex-1 text-center text-xl font-semibold border-2 border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 dark:bg-slate-700 dark:text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                            value={producto.cantidad}
+                            onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            min="1"
+                          />
+                          <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                            {producto.cajas.toFixed(2)} cajas
+                          </span>
+                        </div>
+
+                        {/* Observaciones colapsable */}
+                        <div className="border-t border-slate-100 dark:border-slate-700 pt-3">
+                          <button
+                            onClick={() => toggleObservation(producto.codigo)}
+                            className={`flex items-center gap-2 text-sm transition-colors w-full ${
+                              observacion 
+                                ? 'text-primary-600 font-medium' 
+                                : 'text-slate-500 dark:text-slate-400 hover:text-primary-600'
+                            }`}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                            </svg>
+                            {observacion ? 'Editar observación' : 'Agregar observación'}
+                            {observacion && (
+                              <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-xs px-2 py-0.5 rounded-full">
+                                1
+                              </span>
+                            )}
+                            <svg className={`w-4 h-4 ml-auto transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          
+                          {isExpanded && (
+                            <div className="mt-2 animate-fadeIn">
+                              <textarea
+                                className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 resize-none dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                rows={2}
+                                placeholder="Escriba una observación para este producto..."
+                                value={observacion}
+                                onChange={(e) => updateObservation(producto.codigo, e.target.value)}
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -1260,7 +1393,7 @@ function App() {
               Confirmar limpieza
             </h3>
             <p className="text-slate-600 dark:text-slate-300 mb-6">
-              ¿Está seguro de que desea limpiar toda la selección? Esta acción no se puede deshacer.
+              ¿Está seguro de que desea limpiar todo? Se eliminarán los productos seleccionados y los datos del cliente (RUC, nombre, OC, vendedor). Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-3 justify-end">
               <button
@@ -1273,7 +1406,117 @@ function App() {
                 onClick={confirmClear}
                 className="px-4 py-2 bg-danger-500 text-white rounded-lg hover:bg-danger-600 transition-colors"
               >
-                Limpiar
+                Limpiar todo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para cantidad vacía */}
+      {showQuantityConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 max-w-sm w-full shadow-xl">
+            <div className="text-center mb-4">
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                ¿Eliminar producto?
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
+                Ha dejado la cantidad vacía. ¿Desea eliminar este producto de la lista o restaurar el valor?
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={cancelQuantityDelete}
+                className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors font-medium"
+              >
+                Restaurar (1)
+              </button>
+              <button
+                onClick={confirmQuantityDelete}
+                className="flex-1 px-4 py-3 bg-danger-500 text-white rounded-lg hover:bg-danger-600 transition-colors font-medium"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para exportación */}
+      {showExportConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 max-w-md w-full shadow-xl">
+            <div className="text-center mb-4">
+              <div className="w-12 h-12 bg-success-100 dark:bg-success-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-success-600 dark:text-success-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                Confirmar Exportación
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
+                Verifique los datos antes de generar el archivo Excel
+              </p>
+            </div>
+            
+            {/* Resumen de datos */}
+            <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4 mb-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">RUC/DNI:</span>
+                <span className="font-medium text-slate-800 dark:text-slate-100">{clientData.ruc || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Cliente:</span>
+                <span className="font-medium text-slate-800 dark:text-slate-100 truncate max-w-[180px]">{clientData.nombre || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">OC/Referencia:</span>
+                <span className="font-medium text-slate-800 dark:text-slate-100">{clientData.oc || <span className="text-amber-500">(auto)</span>}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Fecha:</span>
+                <span className="font-medium text-slate-800 dark:text-slate-100">{formatFechaCorta(clientData.fecha)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Vendedor:</span>
+                <span className="font-medium text-slate-800 dark:text-slate-100">{clientData.vendedor || '-'}</span>
+              </div>
+              <div className="border-t border-slate-200 dark:border-slate-600 pt-2 mt-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Productos:</span>
+                  <span className="font-bold text-primary-600 dark:text-primary-400">{selectedProductsArray.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Total unidades:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-100">
+                    {selectedProductsArray.reduce((sum, p) => sum + p.cantidad, 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowExportConfirm(false)}
+                className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmExport}
+                className="flex-1 px-4 py-3 bg-success-500 text-white rounded-lg hover:bg-success-600 transition-colors font-medium flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+                Descargar
               </button>
             </div>
           </div>
