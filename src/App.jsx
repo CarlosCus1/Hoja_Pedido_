@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, Fragment, useRef } from 'react';
 import { useDebounce } from './hooks/useDebounce';
 import { formatMoney, calcularCajas, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, generarOCAutomatica } from './utils/formatters';
 import { generateExcel } from './utils/xlsxGenerator';
@@ -144,6 +144,9 @@ function App() {
   
   // Estado para cantidades en resultados de búsqueda
   const [searchQuantities, setSearchQuantities] = useState({});
+
+  // Estado para selección múltiple en resultados de búsqueda
+  const [selectedForAdd, setSelectedForAdd] = useState({});
 
   // Estado para producto no encontrado
   const [codeNotFound, setCodeNotFound] = useState(false);
@@ -358,6 +361,9 @@ function App() {
   // Total de páginas
   const totalPages = Math.ceil(sortedProducts.length / pageSize);
 
+  // Productos visibles en búsqueda (limitado a 50 para performance)
+  const visibleSearchProducts = filteredProducts.slice(0, 50);
+
   // Resetear página cuando cambia el filtro o tamaño de página
   useEffect(() => {
     setCurrentPage(1);
@@ -398,7 +404,7 @@ function App() {
   const toggleProduct = (producto, cantidad = 1) => {
     // Verificar si el producto ya está seleccionado
     if (selectedProducts[producto.codigo]) {
-      alert(`El producto ${producto.codigo} ya está seleccionado.\nCantidad actual: ${selectedProducts[producto.codigo].cantidad}\n\nUse los botones +/- en la lista de productos para modificar la cantidad.`);
+      alert(`El producto ${producto.codigo} ya está seleccionado.\nCantidad actual: ${selectedProducts[producto.codigo].cantidad}\n\nUse el campo de cantidad en la lista de productos para modificar.`);
       // Limpiar input de búsqueda pero mantener las cantidades
       setSearch('');
       return;
@@ -428,6 +434,88 @@ function App() {
     }));
   };
 
+  // Toggle selección para agregar (checkbox individual)
+  const toggleSelectForAdd = (codigo) => {
+    setSelectedForAdd(prev => ({
+      ...prev,
+      [codigo]: !prev[codigo]
+    }));
+  };
+
+  // Ref para selección por rango (shift+click)
+  const lastSelectedIndexRef = useRef(null);
+
+  // Maneja selección por fila (click/checkbox) con soporte para shift-select
+  const handleRowSelect = (codigo, index, e, productList) => {
+    if (selectedProducts[codigo]) return;
+
+    // Shift+click: seleccionar rango entre última y actual
+    if (e && e.shiftKey && lastSelectedIndexRef.current !== null) {
+      const start = Math.min(lastSelectedIndexRef.current, index);
+      const end = Math.max(lastSelectedIndexRef.current, index);
+      const newSelection = { ...selectedForAdd };
+      for (let i = start; i <= end; i++) {
+        const c = productList[i].codigo;
+        if (!selectedProducts[c]) newSelection[c] = true;
+      }
+      setSelectedForAdd(newSelection);
+    } else {
+      toggleSelectForAdd(codigo);
+      lastSelectedIndexRef.current = index;
+    }
+  };
+
+  // Seleccionar/deseleccionar todos los productos visibles
+  const toggleSelectAll = (productList) => {
+    const allSelected = productList.every(p => selectedForAdd[p.codigo]);
+    if (allSelected) {
+      // Deseleccionar todos
+      setSelectedForAdd({});
+    } else {
+      // Seleccionar todos los que no están ya en el pedido
+      const newSelection = {};
+      productList.forEach(p => {
+        if (!selectedProducts[p.codigo]) {
+          newSelection[p.codigo] = true;
+        }
+      });
+      setSelectedForAdd(newSelection);
+    }
+  };
+
+  // Agregar todos los productos seleccionados
+  const addSelectedProducts = () => {
+    const productsToAdd = Object.keys(selectedForAdd);
+    if (productsToAdd.length === 0) return;
+
+    // Agregar cada producto seleccionado
+    productsToAdd.forEach(codigo => {
+      const producto = productos.find(p => p.codigo === codigo);
+      if (producto && !selectedProducts[producto.codigo]) {
+        const cantidad = searchQuantities[codigo] || 1;
+        setSelectedProducts(prev => ({
+          ...prev,
+          [producto.codigo]: {
+            cantidad: cantidad,
+            precioLista: producto.precioLista,
+            cantidadPorCaja: producto.cantidadPorCaja,
+            nombre: producto.nombre || ''
+          }
+        }));
+      }
+    });
+
+    // Limpiar selección y cantidades
+    setSelectedForAdd({});
+    setSearchQuantities({});
+    setSearch('');
+  };
+
+  // Contar productos seleccionados para agregar (que no están ya en el pedido)
+  const selectedCountForAdd = Object.keys(selectedForAdd).filter(
+    codigo => !selectedProducts[codigo]
+  ).length;
+
   // Agregar producto por código manual (usa el mismo input del buscador)
   const addProductByCode = () => {
     const code = search.trim();
@@ -437,7 +525,7 @@ function App() {
     if (producto) {
       // Verificar si el producto ya está seleccionado
       if (selectedProducts[producto.codigo]) {
-        alert(`El producto ${producto.codigo} ya está seleccionado.\nCantidad actual: ${selectedProducts[producto.codigo].cantidad}\n\nUse los botones +/- en la lista de productos para modificar la cantidad.`);
+        alert(`El producto ${producto.codigo} ya está seleccionado.\nCantidad actual: ${selectedProducts[producto.codigo].cantidad}\n\nUse el campo de cantidad en la lista de productos para modificar.`);
         setSearch('');
         return;
       }
@@ -468,7 +556,7 @@ function App() {
 
     // Verificar si el producto ya está seleccionado
     if (selectedProducts[code]) {
-      alert(`El producto ${code} ya está seleccionado.\nCantidad actual: ${selectedProducts[code].cantidad}\n\nUse los botones +/- en la lista de productos para modificar la cantidad.`);
+      alert(`El producto ${code} ya está seleccionado.\nCantidad actual: ${selectedProducts[code].cantidad}\n\nUse el campo de cantidad en la lista de productos para modificar.`);
       return;
     }
 
@@ -519,63 +607,6 @@ function App() {
         [codigo]: {
           ...prev[codigo],
           cantidad: quantity
-        }
-      };
-    });
-  };
-
-  // Confirmar eliminación por cantidad vacía
-  const confirmQuantityDelete = () => {
-    if (pendingQuantityCodigo) {
-      const newSelection = { ...selectedProducts };
-      delete newSelection[pendingQuantityCodigo];
-      setSelectedProducts(newSelection);
-    }
-    setShowQuantityConfirm(false);
-    setPendingQuantityCodigo(null);
-  };
-
-  // Cancelar eliminación y restaurar cantidad
-  const cancelQuantityDelete = () => {
-    // Restaurar cantidad a 1
-    if (pendingQuantityCodigo) {
-      setSelectedProducts(prev => ({
-        ...prev,
-        [pendingQuantityCodigo]: {
-          ...prev[pendingQuantityCodigo],
-          cantidad: 1
-        }
-      }));
-    }
-    setShowQuantityConfirm(false);
-    setPendingQuantityCodigo(null);
-  };
-
-  // Incrementar cantidad
-  const incrementQuantity = (codigo) => {
-    setSelectedProducts(prev => ({
-      ...prev,
-      [codigo]: {
-        ...prev[codigo],
-        cantidad: (prev[codigo]?.cantidad || 0) + 1
-      }
-    }));
-  };
-
-  // Decrementar cantidad
-  const decrementQuantity = (codigo) => {
-    setSelectedProducts(prev => {
-      const currentQty = prev[codigo]?.cantidad || 0;
-      if (currentQty <= 1) {
-        const newSelection = { ...prev };
-        delete newSelection[codigo];
-        return newSelection;
-      }
-      return {
-        ...prev,
-        [codigo]: {
-          ...prev[codigo],
-          cantidad: currentQty - 1
         }
       };
     });
@@ -867,12 +898,25 @@ function App() {
                     setCodeNotFound(false);
                     if (!e.target.value.trim()) {
                       setSearchQuantities({});
+                      setSelectedForAdd({});
                     }
                   }}
                   onKeyDown={handleManualCodeKeyDown}
                 />
                 <button
-                  onClick={addProductByCode}
+                  onClick={() => {
+                    // Si hay un solo producto en resultados y no está seleccionado, agregarlo con su cantidad
+                    if (filteredProducts.length === 1) {
+                      const producto = filteredProducts[0];
+                      if (!selectedProducts[producto.codigo]) {
+                        const cantidad = searchQuantities[producto.codigo] || 1;
+                        toggleProduct(producto, cantidad);
+                        return;
+                      }
+                    }
+                    // Comportamiento original: agregar por código exacto
+                    addProductByCode();
+                  }}
                   className="btn-primary whitespace-nowrap"
                 >
                   Agregar
@@ -892,28 +936,67 @@ function App() {
           {/* Tabla de búsqueda - Solo para agregar productos */}
           {search.trim() && (
             <>
+              {/* Botón Agregar Seleccionados */}
+              {selectedCountForAdd > 0 && (
+                <div className="px-4 py-3 bg-primary-50 dark:bg-primary-900/20 border-b border-primary-100 dark:border-primary-800">
+                  <button
+                    onClick={addSelectedProducts}
+                    className="w-full sm:w-auto px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                    </svg>
+                    Agregar {selectedCountForAdd} producto{selectedCountForAdd > 1 ? 's' : ''}
+                  </button>
+                </div>
+              )}
+
               {/* Vista Desktop - Tabla completa */}
               <div className="hidden sm:block overflow-x-auto max-h-64 overflow-y-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 sticky top-0">
                     <tr>
+                      <th className="px-2 py-2 text-center w-10">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500"
+                          checked={visibleSearchProducts.length > 0 && visibleSearchProducts.every(p => selectedForAdd[p.codigo])}
+                          onChange={() => toggleSelectAll(visibleSearchProducts)}
+                          title="Seleccionar todos"
+                        />
+                      </th>
                       <th className="px-2 py-2 text-left font-medium">Código</th>
                       <th className="px-2 py-2 text-left font-medium">Nombre</th>
                       <th className="px-2 py-2 text-center font-medium">U/Caja</th>
                       <th className="px-2 py-2 text-right font-medium">Precio</th>
                       <th className="px-2 py-2 text-center font-medium w-20">Cant.</th>
-                      <th className="px-2 py-2 text-center font-medium w-20">Agregar</th>
+                      <th className="px-2 py-2 text-center font-medium w-20">Seleccionar</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {filteredProducts.slice(0, 50).map((producto) => {
-                      const selected = isSelected(producto.codigo);
+                    {visibleSearchProducts.map((producto, idx) => {
+                      const alreadySelected = isSelected(producto.codigo);
+                      const isChecked = selectedForAdd[producto.codigo];
                       const qty = searchQuantities[producto.codigo] || 1;
                       return (
                         <tr
                           key={producto.codigo}
-                          className={`table-row-hover ${selected ? 'bg-primary-50 dark:bg-primary-900/20' : 'bg-white dark:bg-slate-800'}`}
+                          className={`table-row-hover ${alreadySelected ? 'bg-slate-100 dark:bg-slate-800/50' : isChecked ? 'bg-primary-50 dark:bg-primary-900/20' : 'bg-white dark:bg-slate-800'}`}
+                          onClick={(e) => {
+                            if (e.target.tagName.toLowerCase() === 'input' || e.target.closest('button')) return;
+                            if (!alreadySelected) handleRowSelect(producto.codigo, idx, e, visibleSearchProducts);
+                          }}
                         >
+                          <td className="px-2 py-2 text-center">
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                              checked={isChecked || alreadySelected}
+                              disabled={alreadySelected}
+                              onChange={(e) => !alreadySelected && handleRowSelect(producto.codigo, idx, e, visibleSearchProducts)}
+                              title={alreadySelected ? 'Ya está en el pedido' : isChecked ? 'Quitar selección' : 'Seleccionar'}
+                            />
+                          </td>
                           <td className="px-2 py-2 font-mono font-medium text-slate-800 dark:text-slate-100">
                             {producto.codigo}
                           </td>
@@ -930,28 +1013,19 @@ function App() {
                             <input
                               type="number"
                               min="1"
-                              className="w-14 text-center border border-slate-300 dark:border-slate-600 rounded py-1 text-sm dark:bg-slate-700 dark:text-slate-100"
+                              className={`w-14 text-center border border-slate-300 dark:border-slate-600 rounded py-1 text-sm dark:bg-slate-700 dark:text-slate-100 ${alreadySelected ? 'bg-slate-100 dark:bg-slate-700 cursor-not-allowed' : ''}`}
                               value={qty}
+                              disabled={alreadySelected}
                               onChange={(e) => handleSearchQuantityChange(producto.codigo, e.target.value)}
                               onFocus={(e) => e.target.select()}
                             />
                           </td>
                           <td className="px-2 py-2 text-center">
-                            <button
-                              onClick={() => toggleProduct(producto, qty)}
-                              className={`btn-icon ${selected ? 'text-danger-600 hover:bg-danger-50' : 'text-success-600 hover:bg-success-50'}`}
-                              title={selected ? 'Quitar' : 'Agregar'}
-                            >
-                              {selected ? (
-                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                </svg>
-                              ) : (
-                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                            </button>
+                            {alreadySelected ? (
+                              <span className="text-xs text-slate-400 dark:text-slate-500">En pedido</span>
+                            ) : (
+                              <span className="text-xs text-slate-500 dark:text-slate-400">Marcar</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -975,25 +1049,40 @@ function App() {
 
               {/* Vista Móvil - Lista con input de cantidad y nombre en 2 líneas */}
               <div className="sm:hidden max-h-80 overflow-y-auto">
-                {filteredProducts.slice(0, 50).map((producto) => {
-                  const selected = isSelected(producto.codigo);
+                {visibleSearchProducts.map((producto, idx) => {
+                  const alreadySelected = isSelected(producto.codigo);
+                  const isChecked = selectedForAdd[producto.codigo];
                   const qty = searchQuantities[producto.codigo] || 1;
                   return (
                     <div
                       key={producto.codigo}
                       className={`flex flex-col gap-2 px-3 py-3 border-b border-slate-100 dark:border-slate-700 ${
-                        selected ? 'bg-primary-50 dark:bg-primary-900/20' : 'bg-white dark:bg-slate-800'
+                        alreadySelected ? 'bg-slate-100 dark:bg-slate-800/50' : isChecked ? 'bg-primary-50 dark:bg-primary-900/20' : 'bg-white dark:bg-slate-800'
                       }`}
+                      onClick={(e) => {
+                        if (e.target.tagName.toLowerCase() === 'input' || e.target.closest('button')) return;
+                        if (!alreadySelected) handleRowSelect(producto.codigo, idx, e, visibleSearchProducts);
+                      }}
                     >
-                      {/* Primera línea: Código + Nombre */}
+                      {/* Primera línea: Checkbox + Código + Nombre */}
                       <div className="flex justify-between items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <span className="font-mono font-bold text-primary-600 dark:text-primary-400 text-sm">
-                            {producto.codigo}
-                          </span>
-                          <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mt-0.5" title={producto.nombre}>
-                            {producto.nombre || '-'}
-                          </p>
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 mt-1 rounded border-slate-300 dark:border-slate-600 text-primary-600 focus:ring-primary-500 cursor-pointer shrink-0"
+                            checked={isChecked || alreadySelected}
+                            disabled={alreadySelected}
+                            onChange={(e) => !alreadySelected && handleRowSelect(producto.codigo, idx, e, visibleSearchProducts)}
+                            title={alreadySelected ? 'Ya está en el pedido' : isChecked ? 'Quitar selección' : 'Seleccionar'}
+                          />
+                          <div className="min-w-0">
+                            <span className="font-mono font-bold text-primary-600 dark:text-primary-400 text-sm">
+                              {producto.codigo}
+                            </span>
+                            <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mt-0.5" title={producto.nombre}>
+                              {producto.nombre || '-'}
+                            </p>
+                          </div>
                         </div>
                         <div className="text-right shrink-0">
                           <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -1013,22 +1102,17 @@ function App() {
                         <input
                           type="number"
                           min="1"
-                          className="flex-1 text-center border border-slate-300 dark:border-slate-600 rounded py-1.5 px-2 text-sm dark:bg-slate-700 dark:text-slate-100"
+                          className={`flex-1 text-center border border-slate-300 dark:border-slate-600 rounded py-1.5 px-2 text-sm dark:bg-slate-700 dark:text-slate-100 ${alreadySelected ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
                           value={qty}
+                          disabled={alreadySelected}
                           onChange={(e) => handleSearchQuantityChange(producto.codigo, e.target.value)}
                           onFocus={(e) => e.target.select()}
                         />
-                        <button
-                          onClick={() => toggleProduct(producto, qty)}
-                          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            selected 
-                              ? 'bg-danger-100 dark:bg-danger-900/30 text-danger-600' 
-                              : 'bg-success-100 dark:bg-success-900/30 text-success-600'
-                          }`}
-                          title={selected ? 'Quitar' : 'Agregar'}
-                        >
-                          {selected ? 'Quitar' : 'Agregar'}
-                        </button>
+                        {alreadySelected ? (
+                          <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-400">En pedido</span>
+                        ) : (
+                          <span className="px-3 py-1.5 text-sm text-slate-500 dark:text-slate-400">Marcar</span>
+                        )}
                       </div>
                     </div>
                   );
@@ -1211,30 +1295,14 @@ function App() {
                             {formatMoney(producto.precioLista)}
                           </td>
                           <td className="px-2 py-3">
-                            <div className="flex items-center justify-center gap-0.5">
-                              <button
-                                onClick={() => decrementQuantity(producto.codigo)}
-                                className="w-6 h-6 flex items-center justify-center text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded text-sm font-bold"
-                                title="Decrementar"
-                              >
-                                −
-                              </button>
-                              <input
-                                type="number"
-                                className="w-12 text-center border border-slate-300 dark:border-slate-600 rounded px-1 py-0.5 text-sm dark:bg-slate-700 dark:text-slate-100"
-                                value={producto.cantidad}
-                                onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
-                                onFocus={(e) => e.target.select()}
-                                min="0"
-                              />
-                              <button
-                                onClick={() => incrementQuantity(producto.codigo)}
-                                className="w-6 h-6 flex items-center justify-center text-success-600 hover:bg-success-50 dark:hover:bg-success-900/20 rounded text-sm font-bold"
-                                title="Incrementar"
-                              >
-                                +
-                              </button>
-                            </div>
+                            <input
+                              type="number"
+                              className="w-16 text-center border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm dark:bg-slate-700 dark:text-slate-100"
+                              value={producto.cantidad}
+                              onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              min="1"
+                            />
                           </td>
                           <td className="px-4 py-3 text-center font-mono text-slate-600 dark:text-slate-300">
                             {producto.cajas.toFixed(2)}
