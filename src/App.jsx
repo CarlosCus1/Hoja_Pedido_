@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { useDebounce } from './hooks/useDebounce';
 import { formatMoney, calcularCajas, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, generarOCAutomatica } from './utils/formatters';
-import { generateExcelExtended } from './utils/xlsxGenerator';
+import { generateExcel } from './utils/xlsxGenerator';
 
 // Nombre de la base de datos IndexedDB
 const DB_NAME = 'HojaPedidoDB';
@@ -133,13 +133,17 @@ function App() {
     ruc: '',
     nombre: '',
     oc: '',
-    fecha: getFechaActual(),
+    provincia: '',
+    direccion: '',
     vendedor: ''
   });
 
   // Estado de búsqueda
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
+  
+  // Estado para cantidades en resultados de búsqueda
+  const [searchQuantities, setSearchQuantities] = useState({});
 
   // Estado para producto no encontrado
   const [codeNotFound, setCodeNotFound] = useState(false);
@@ -173,6 +177,9 @@ function App() {
 
   // Estado para modal de confirmación de exportación
   const [showExportConfirm, setShowExportConfirm] = useState(false);
+
+  // Estado para sección de cliente colapsable en móvil
+  const [clientSectionExpanded, setClientSectionExpanded] = useState(true);
 
   // Aplicar tema oscuro
   useEffect(() => {
@@ -270,7 +277,8 @@ function App() {
             ruc: '',
             nombre: '',
             oc: '',
-            fecha: getFechaActual(),
+            provincia: '',
+            direccion: '',
             vendedor: ''
           });
         }
@@ -355,9 +363,9 @@ function App() {
     setCurrentPage(1);
   }, [debouncedSearch, pageSize]);
 
-  // Productos seleccionados como array
+  // Productos seleccionados como array (ordenados por código ascendente)
   const selectedProductsArray = useMemo(() => {
-    return Object.entries(selectedProducts).map(([codigo, data]) => ({
+    const products = Object.entries(selectedProducts).map(([codigo, data]) => ({
       codigo,
       cantidad: data.cantidad,
       precioLista: data.precioLista,
@@ -365,6 +373,8 @@ function App() {
       cajas: calcularCajas(data.cantidad, data.cantidadPorCaja),
       observacion: data.observacion || ''
     }));
+    // Ordenar por código ascendente
+    return products.sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
   }, [selectedProducts]);
 
   // Total de productos seleccionados
@@ -384,22 +394,38 @@ function App() {
     return selectedProducts.hasOwnProperty(codigo);
   };
 
-  // Toggle selección de producto
-  const toggleProduct = (producto) => {
+  // Toggle selección de producto (acepta cantidad opcional)
+  const toggleProduct = (producto, cantidad = 1) => {
+    // Verificar si el producto ya está seleccionado
+    if (selectedProducts[producto.codigo]) {
+      alert(`El producto ${producto.codigo} ya está seleccionado.\nCantidad actual: ${selectedProducts[producto.codigo].cantidad}\n\nUse los botones +/- en la lista de productos para modificar la cantidad.`);
+      // Limpiar input de búsqueda pero mantener las cantidades
+      setSearch('');
+      return;
+    }
+    
     setSelectedProducts(prev => {
       const newSelection = { ...prev };
-      if (newSelection[producto.codigo]) {
-        delete newSelection[producto.codigo];
-      } else {
-        newSelection[producto.codigo] = {
-          cantidad: 1,
-          precioLista: producto.precioLista,
-          cantidadPorCaja: producto.cantidadPorCaja,
-          nombre: producto.nombre || ''
-        };
-      }
+      newSelection[producto.codigo] = {
+        cantidad: cantidad,
+        precioLista: producto.precioLista,
+        cantidadPorCaja: producto.cantidadPorCaja,
+        nombre: producto.nombre || ''
+      };
       return newSelection;
     });
+    // Limpiar input de búsqueda y cantidades
+    setSearch('');
+    setSearchQuantities({});
+  };
+
+  // Manejar cambio de cantidad en resultados de búsqueda
+  const handleSearchQuantityChange = (codigo, value) => {
+    const qty = Math.max(1, parseInt(value, 10) || 1);
+    setSearchQuantities(prev => ({
+      ...prev,
+      [codigo]: qty
+    }));
   };
 
   // Agregar producto por código manual (usa el mismo input del buscador)
@@ -409,23 +435,22 @@ function App() {
 
     const producto = productos.find(p => p.codigo === code);
     if (producto) {
-      // Si el producto existe en el catálogo
+      // Verificar si el producto ya está seleccionado
+      if (selectedProducts[producto.codigo]) {
+        alert(`El producto ${producto.codigo} ya está seleccionado.\nCantidad actual: ${selectedProducts[producto.codigo].cantidad}\n\nUse los botones +/- en la lista de productos para modificar la cantidad.`);
+        setSearch('');
+        return;
+      }
+      
+      // Si el producto existe en el catálogo y no está seleccionado
       setSelectedProducts(prev => {
         const newSelection = { ...prev };
-        if (!newSelection[producto.codigo]) {
-          newSelection[producto.codigo] = {
-            cantidad: 1,
-            precioLista: producto.precioLista,
-            cantidadPorCaja: producto.cantidadPorCaja,
-            nombre: producto.nombre || ''
-          };
-        } else {
-          // Si ya existe, incrementar cantidad
-          newSelection[producto.codigo] = {
-            ...newSelection[producto.codigo],
-            cantidad: newSelection[producto.codigo].cantidad + 1
-          };
-        }
+        newSelection[producto.codigo] = {
+          cantidad: 1,
+          precioLista: producto.precioLista,
+          cantidadPorCaja: producto.cantidadPorCaja,
+          nombre: producto.nombre || ''
+        };
         return newSelection;
       });
       setSearch('');
@@ -440,6 +465,12 @@ function App() {
   const addCustomProduct = (customData) => {
     const code = search.trim();
     if (!code) return;
+
+    // Verificar si el producto ya está seleccionado
+    if (selectedProducts[code]) {
+      alert(`El producto ${code} ya está seleccionado.\nCantidad actual: ${selectedProducts[code].cantidad}\n\nUse los botones +/- en la lista de productos para modificar la cantidad.`);
+      return;
+    }
 
     setSelectedProducts(prev => {
       const newSelection = { ...prev };
@@ -570,7 +601,8 @@ function App() {
       ruc: '',
       nombre: '',
       oc: '',
-      fecha: getFechaActual(),
+      provincia: '',
+      direccion: '',
       vendedor: ''
     });
     await clearStore('seleccion');
@@ -581,7 +613,7 @@ function App() {
     setShowClearConfirm(false);
   };
 
-  // Exportar a Excel
+  // Exportar a Excel (mínimo: RUC + 1 producto)
   const handleExport = () => {
     if (!validarDocumento(clientData.ruc)) {
       alert('Por favor, ingrese un RUC (11 dígitos) o DNI (8 dígitos) válido');
@@ -589,7 +621,7 @@ function App() {
     }
 
     if (selectedProductsArray.length === 0) {
-      alert('No hay productos seleccionados para exportar');
+      alert('Agregue al menos un producto para exportar');
       return;
     }
 
@@ -611,7 +643,7 @@ function App() {
       setClientData(prev => ({ ...prev, oc: fechaCompacta }));
     }
 
-    generateExcelExtended(exportClientData, selectedProductsArray);
+    generateExcel(exportClientData, selectedProductsArray);
     setShowExportConfirm(false);
   };
 
@@ -660,6 +692,10 @@ function App() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              {/* Fecha actual */}
+              <span className="text-sm text-slate-500 dark:text-slate-400 hidden sm:inline">
+                {getFechaCorta()}
+              </span>
               {/* Toggle de tema */}
               <button
                 onClick={toggleDarkMode}
@@ -686,14 +722,39 @@ function App() {
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Datos del Cliente */}
-        <section className="glass-card p-6 mb-6 animate-fadeIn">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
-            <svg className="w-5 h-5 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-            </svg>
-            Datos del Cliente
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <section className="glass-card mb-6 animate-fadeIn">
+          {/* Header colapsable en móvil */}
+          <div className="p-6 pb-4">
+            <button
+              className="w-full flex items-center justify-between sm:hidden"
+              onClick={() => setClientSectionExpanded(!clientSectionExpanded)}
+            >
+              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <svg className="w-5 h-5 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                </svg>
+                Datos del Cliente
+              </h2>
+              <svg
+                className={`w-5 h-5 text-slate-500 transition-transform ${clientSectionExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2 hidden sm:flex">
+              <svg className="w-5 h-5 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+              </svg>
+              Datos del Cliente
+            </h2>
+          </div>
+
+          {/* Contenido colapsable */}
+          <div className={`${clientSectionExpanded ? 'block' : 'hidden'} sm:block px-6 pb-6`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
                 RUC/DNI {!validarDocumento(clientData.ruc) && clientData.ruc && (
@@ -703,7 +764,8 @@ function App() {
               <input
                 type="text"
                 className={`glass-input ${!validarDocumento(clientData.ruc) && clientData.ruc ? 'border-danger-300 focus:border-danger-500' : ''}`}
-                placeholder="20123456789 o 12345678"
+                placeholder="RUC (11 dígitos) o DNI (8 dígitos)"
+                title="Ingrese RUC (11 dígitos) o DNI (8 dígitos). Campo obligatorio para exportar."
                 value={clientData.ruc}
                 onChange={(e) => handleClientChange('ruc', e.target.value)}
                 maxLength={11}
@@ -722,6 +784,7 @@ function App() {
                 type="text"
                 className="glass-input"
                 placeholder="Razón Social o Nombre"
+                title="Nombre o razón social del cliente (opcional)"
                 value={clientData.nombre}
                 onChange={(e) => handleClientChange('nombre', e.target.value)}
               />
@@ -733,26 +796,38 @@ function App() {
               <input
                 type="text"
                 className="glass-input"
-                placeholder="Orden de Compra"
+                placeholder="Número entero (ej: 12345)"
+                title="Número de orden de compra o referencia. Solo números enteros. Se autogenera si está vacío."
                 value={clientData.oc}
-                onChange={(e) => handleClientChange('oc', e.target.value)}
+                onChange={(e) => handleClientChange('oc', e.target.value.replace(/\D/g, ''))}
+                inputMode="numeric"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
-                Fecha
+                Provincia / Departamento
               </label>
               <input
                 type="text"
                 className="glass-input"
-                placeholder="dd/mm/aa"
-                value={formatFechaCorta(clientData.fecha)}
-                onChange={(e) => handleClientChange('fecha', e.target.value)}
-                maxLength={8}
+                placeholder="Ej: Trujillo, Lima, Arequipa..."
+                title="Ciudad o departamento de entrega. Se usa para el nombre del archivo Excel."
+                value={clientData.provincia}
+                onChange={(e) => handleClientChange('provincia', e.target.value)}
               />
-              <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Formato: {getFechaCorta()}
-              </span>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+                Dirección / Punto de llegada
+              </label>
+              <input
+                type="text"
+                className="glass-input"
+                placeholder="Av, Jr, Calle, número..."
+                title="Dirección exacta de entrega (opcional)"
+                value={clientData.direccion}
+                onChange={(e) => handleClientChange('direccion', e.target.value)}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
@@ -762,11 +837,13 @@ function App() {
                 type="text"
                 className="glass-input"
                 placeholder="Nombre del vendedor"
+                title="Nombre del vendedor que atiende (opcional)"
                 value={clientData.vendedor}
                 onChange={(e) => handleClientChange('vendedor', e.target.value)}
               />
             </div>
           </div>
+        </div>
         </section>
 
         {/* Agregar código manual y Buscador unificado */}
@@ -788,6 +865,9 @@ function App() {
                   onChange={(e) => {
                     setSearch(e.target.value);
                     setCodeNotFound(false);
+                    if (!e.target.value.trim()) {
+                      setSearchQuantities({});
+                    }
                   }}
                   onKeyDown={handleManualCodeKeyDown}
                 />
@@ -817,36 +897,48 @@ function App() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 sticky top-0">
                     <tr>
-                      <th className="px-4 py-2 text-left font-medium">Código</th>
-                      <th className="px-4 py-2 text-left font-medium">Nombre</th>
-                      <th className="px-4 py-2 text-center font-medium">U/Caja</th>
-                      <th className="px-4 py-2 text-right font-medium">Precio</th>
-                      <th className="px-4 py-2 text-center font-medium w-24">Agregar</th>
+                      <th className="px-2 py-2 text-left font-medium">Código</th>
+                      <th className="px-2 py-2 text-left font-medium">Nombre</th>
+                      <th className="px-2 py-2 text-center font-medium">U/Caja</th>
+                      <th className="px-2 py-2 text-right font-medium">Precio</th>
+                      <th className="px-2 py-2 text-center font-medium w-20">Cant.</th>
+                      <th className="px-2 py-2 text-center font-medium w-20">Agregar</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                     {filteredProducts.slice(0, 50).map((producto) => {
                       const selected = isSelected(producto.codigo);
+                      const qty = searchQuantities[producto.codigo] || 1;
                       return (
                         <tr
                           key={producto.codigo}
                           className={`table-row-hover ${selected ? 'bg-primary-50 dark:bg-primary-900/20' : 'bg-white dark:bg-slate-800'}`}
                         >
-                          <td className="px-4 py-2 font-mono font-medium text-slate-800 dark:text-slate-100">
+                          <td className="px-2 py-2 font-mono font-medium text-slate-800 dark:text-slate-100">
                             {producto.codigo}
                           </td>
-                          <td className="px-4 py-2 text-slate-600 dark:text-slate-300 max-w-[12rem]">
-                            <p className="line-clamp-2">{producto.nombre || '-'}</p>
+                          <td className="px-2 py-2 text-slate-600 dark:text-slate-300 max-w-[10rem]">
+                            <p className="line-clamp-2 text-sm">{producto.nombre || '-'}</p>
                           </td>
-                          <td className="px-4 py-2 text-center text-slate-600 dark:text-slate-300">
+                          <td className="px-2 py-2 text-center text-slate-600 dark:text-slate-300 text-sm">
                             {producto.cantidadPorCaja}
                           </td>
-                          <td className="px-4 py-2 text-right font-mono text-slate-800 dark:text-slate-100">
+                          <td className="px-2 py-2 text-right font-mono text-slate-800 dark:text-slate-100 text-sm">
                             {formatMoney(producto.precioLista)}
                           </td>
-                          <td className="px-4 py-2 text-center">
+                          <td className="px-2 py-2 text-center">
+                            <input
+                              type="number"
+                              min="1"
+                              className="w-14 text-center border border-slate-300 dark:border-slate-600 rounded py-1 text-sm dark:bg-slate-700 dark:text-slate-100"
+                              value={qty}
+                              onChange={(e) => handleSearchQuantityChange(producto.codigo, e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                            />
+                          </td>
+                          <td className="px-2 py-2 text-center">
                             <button
-                              onClick={() => toggleProduct(producto)}
+                              onClick={() => toggleProduct(producto, qty)}
                               className={`btn-icon ${selected ? 'text-danger-600 hover:bg-danger-50' : 'text-success-600 hover:bg-success-50'}`}
                               title={selected ? 'Quitar' : 'Agregar'}
                             >
@@ -881,49 +973,63 @@ function App() {
                 </table>
               </div>
 
-              {/* Vista Móvil - Lista compacta en una sola línea */}
+              {/* Vista Móvil - Lista con input de cantidad y nombre en 2 líneas */}
               <div className="sm:hidden max-h-80 overflow-y-auto">
                 {filteredProducts.slice(0, 50).map((producto) => {
                   const selected = isSelected(producto.codigo);
+                  const qty = searchQuantities[producto.codigo] || 1;
                   return (
                     <div
                       key={producto.codigo}
-                      className={`flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-slate-700 ${
+                      className={`flex flex-col gap-2 px-3 py-3 border-b border-slate-100 dark:border-slate-700 ${
                         selected ? 'bg-primary-50 dark:bg-primary-900/20' : 'bg-white dark:bg-slate-800'
                       }`}
                     >
-                      {/* Código */}
-                      <span className="font-mono font-bold text-primary-600 dark:text-primary-400 min-w-[60px] text-sm">
-                        {producto.codigo}
-                      </span>
-                      {/* Descripción */}
-                      <span className="flex-1 text-xs text-slate-600 dark:text-slate-300 truncate" title={producto.nombre}>
-                        {producto.nombre || '-'}
-                      </span>
-                      {/* U/Caja */}
-                      <span className="text-xs text-slate-500 dark:text-slate-400 min-w-[40px] text-center">
-                        {producto.cantidadPorCaja}/cj
-                      </span>
-                      {/* Botón agregar */}
-                      <button
-                        onClick={() => toggleProduct(producto)}
-                        className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
-                          selected 
-                            ? 'bg-danger-100 dark:bg-danger-900/30 text-danger-600' 
-                            : 'bg-success-100 dark:bg-success-900/30 text-success-600'
-                        }`}
-                        title={selected ? 'Quitar' : 'Agregar'}
-                      >
-                        {selected ? (
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        ) : (
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </button>
+                      {/* Primera línea: Código + Nombre */}
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <span className="font-mono font-bold text-primary-600 dark:text-primary-400 text-sm">
+                            {producto.codigo}
+                          </span>
+                          <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mt-0.5" title={producto.nombre}>
+                            {producto.nombre || '-'}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                            {producto.cantidadPorCaja}/cj
+                          </span>
+                          <p className="text-xs font-mono text-slate-700 dark:text-slate-200">
+                            {formatMoney(producto.precioLista)}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Segunda línea: Cantidad + Botón */}
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                          Cant:
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          className="flex-1 text-center border border-slate-300 dark:border-slate-600 rounded py-1.5 px-2 text-sm dark:bg-slate-700 dark:text-slate-100"
+                          value={qty}
+                          onChange={(e) => handleSearchQuantityChange(producto.codigo, e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                        />
+                        <button
+                          onClick={() => toggleProduct(producto, qty)}
+                          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            selected 
+                              ? 'bg-danger-100 dark:bg-danger-900/30 text-danger-600' 
+                              : 'bg-success-100 dark:bg-success-900/30 text-success-600'
+                          }`}
+                          title={selected ? 'Quitar' : 'Agregar'}
+                        >
+                          {selected ? 'Quitar' : 'Agregar'}
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -1481,8 +1587,12 @@ function App() {
                 <span className="font-medium text-slate-800 dark:text-slate-100">{clientData.oc || <span className="text-amber-500">(auto)</span>}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Fecha:</span>
-                <span className="font-medium text-slate-800 dark:text-slate-100">{formatFechaCorta(clientData.fecha)}</span>
+                <span className="text-slate-500 dark:text-slate-400">Provincia:</span>
+                <span className="font-medium text-slate-800 dark:text-slate-100">{clientData.provincia || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Dirección:</span>
+                <span className="font-medium text-slate-800 dark:text-slate-100">{clientData.direccion || '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Vendedor:</span>
@@ -1612,7 +1722,7 @@ function App() {
       {/* Footer */}
       <footer className="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 py-4 mt-8">
         <div className="max-w-7xl mx-auto px-4 text-center text-sm text-slate-500 dark:text-slate-400">
-          Hoja de Pedido v1.0 - Sistema de gestión de pedidos
+          Hoja de Pedido v1.1 - Sistema de gestión de pedidos
         </div>
       </footer>
     </div>

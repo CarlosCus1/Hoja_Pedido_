@@ -4,20 +4,29 @@ Sistema de gestión de hojas de pedido con buscador flexible y exportación a Ex
 
 ## 🚀 Características
 
-- **Formulario de Cliente**: RUC/DNI, Nombre, OC/Referencia, Fecha, Vendedor
-- **Buscador Flexible**: Búsqueda por código con debounce de 300ms
-- **Selector Múltiple**: Checkbox para seleccionar productos
+- **Formulario de Cliente**: RUC/DNI, Nombre, OC, Provincia, Dirección, Vendedor
+- **Buscador Flexible**: Búsqueda por código o nombre con debounce de 300ms
+- **Agregar con Cantidad**: Input de cantidad en resultados de búsqueda
+- **Selector Múltiple**: Toggle para seleccionar productos
 - **Botones +/-**: Incrementar y decrementar cantidades fácilmente
 - **Cálculo de Cajas**: Columna que muestra cajas según unidades/cantidad por caja
 - **Persistencia IndexedDB**: Los datos se guardan localmente
 - **Exportación XLSX**: Formato específico para hojas de pedido
+- **Ordenamiento Automático**: Productos seleccionados se ordenan por código
+- **Sección Colapsable (Móvil)**: Datos del cliente pueden colapsarse
+- **Prevención de Duplicados**: Alerta si el producto ya está seleccionado
 
 ## 📊 Formato de Exportación Excel
 
-| RUC | OC | (vacía) | (vacía) | Código | (vacía) | Cantidad | Precio |
-|-----|----|---------|---------|--------|---------|----------|--------|
+| RUC | OC | SKU | CANTIDAD | PRECIO | OBSERVACIONES |
+|-----|----|-----|----------|--------|---------------|
+| 20100654025 | 01 | 85007 | 560.00 | 3.33 | |
+| 20100654025 | 01 | 03110 | 100.00 | 5.14 | |
 
-El RUC y OC se repiten en cada fila.
+- El RUC y OC se repiten en cada fila
+- Nombre de la pestaña: Provincia (ej: "Trujillo")
+- Nombre del archivo: `OC_(ruc)_(provincia)_ddmmyy`
+  - Ejemplo: `OC_20100654025_trujillo_210226.xlsx`
 
 ## 🛠️ Instalación
 
@@ -45,7 +54,7 @@ Hoja_de_Pedido/
 ├── tailwind.config.js
 ├── postcss.config.js
 ├── public/
-│   ├── productos.json       # Datos de productos
+│   ├── productos_local.json  # Datos de productos
 │   └── favicon.svg
 └── src/
     ├── main.jsx             # Punto de entrada
@@ -63,6 +72,7 @@ Hoja_de_Pedido/
 ```json
 {
   "codigo": "016763",
+  "nombre": "Producto de ejemplo",
   "cantidadPorCaja": 25,
   "precioLista": 70.00
 }
@@ -70,12 +80,13 @@ Hoja_de_Pedido/
 
 ## 🎯 Uso
 
-1. **Ingresar datos del cliente**: Complete el formulario con RUC/DNI, nombre, OC, fecha y vendedor
-2. **Buscar productos**: Use el buscador para filtrar por código
-3. **Seleccionar productos**: Marque los productos deseados con el checkbox
-4. **Ajustar cantidades**: Use los botones +/- o escriba directamente
-5. **Ver cajas**: La columna "Cajas" muestra el cálculo automático
-6. **Exportar**: Haga clic en "Exportar a Excel" para descargar
+1. **Ingresar datos del cliente**: Complete el formulario con RUC/DNI, nombre, OC, provincia, dirección y vendedor
+2. **Buscar productos**: Use el buscador para filtrar por código o nombre
+3. **Agregar productos**: Escriba la cantidad directamente en los resultados y haga clic en "Agregar"
+4. **Seleccionar productos**: Los productos aparecen en la lista de seleccionados
+5. **Ajustar cantidades**: Use los botones +/- o escriba directamente
+6. **Ver cajas**: La columna "Cajas" muestra el cálculo automático
+7. **Exportar**: Haga clic en "Exportar a Excel" para descargar (mínimo: RUC + 1 producto)
 
 ## 💾 Persistencia
 
@@ -94,10 +105,12 @@ Los datos se guardan automáticamente en IndexedDB:
 ## 📝 Notas
 
 - El RUC debe tener 11 dígitos, el DNI 8 dígitos
-- La fecha se ingresa en formato ddmmyyyy (ej: 14022026)
+- La OC es un número entero (se autogenera con fecha ddmmyy si está vacío)
+- La provincia se usa para el nombre del archivo y pestaña de Excel
 - El cálculo de cajas es: `unidades / cantidadPorCaja`
+- Productos duplicados no se permiten (se muestra alerta)
 
 ---
 
-**Versión**: 1.0.0  
+**Versión**: 1.1.0  
 **Proyecto**: Hoja de Pedido Lite
