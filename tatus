@@ -1,0 +1,3 @@
+[33mfeea148[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m v1.1 - Mejoras: formato XLSX 6 columnas, provincia/direccion, input cantidad en busqueda, prevencion duplicados
+[33m3ed9844[m Filtrado de productos: eliminados 134 items con descuento/bonificacion y peso 0.0
+[33m5a2affd[m Initial commit: Hoja de Pedido v1.0
