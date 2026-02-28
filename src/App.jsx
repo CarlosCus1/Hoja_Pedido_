@@ -158,6 +158,8 @@ function App() {
   
   // Estado para cantidades en resultados de búsqueda
   const [searchQuantities, setSearchQuantities] = useState({});
+  // Modo de entrada: 'units' o 'boxes' (impacta cómo se interpretan números simples)
+  const [inputMode, setInputMode] = useState('units');
 
   // Estado para selección múltiple en resultados de búsqueda
   const [selectedForAdd, setSelectedForAdd] = useState({});
@@ -549,7 +551,14 @@ function App() {
     }
 
     const n = parseInt(raw, 10);
-    return isNaN(n) ? null : Math.max(0, n);
+    if (isNaN(n)) return null;
+    // Si el modo de entrada global es 'boxes', interpretar números simples como cajas
+    if (inputMode === 'boxes') {
+      const prod = productos.find(p => p.codigo === codigo);
+      const perBox = prod?.cantidadPorCaja || 1;
+      return Math.max(0, n * perBox);
+    }
+    return Math.max(0, n);
   };
 
   // Manejar cambio de cantidad en resultados de búsqueda
@@ -875,6 +884,23 @@ function App() {
               <span className="text-sm text-slate-500 dark:text-slate-400 hidden sm:inline">
                 {productos.length} productos
               </span>
+              {/* Modo de entrada: Unidades / Cajas */}
+              <div className="inline-flex items-center border rounded-lg overflow-hidden ml-2">
+                <button
+                  onClick={() => setInputMode('units')}
+                  className={`px-2 py-1 text-sm ${inputMode === 'units' ? 'bg-white dark:bg-slate-800 text-primary-600' : 'text-slate-600 dark:text-slate-400'}`}
+                  title="Ingresar en unidades"
+                >
+                  Unidades
+                </button>
+                <button
+                  onClick={() => setInputMode('boxes')}
+                  className={`px-2 py-1 text-sm ${inputMode === 'boxes' ? 'bg-white dark:bg-slate-800 text-primary-600' : 'text-slate-600 dark:text-slate-400'}`}
+                  title="Ingresar en cajas (convertirá a unidades)"
+                >
+                  Cajas
+                </button>
+              </div>
               {/* Botón actualizar stock */}
               <button
                 onClick={handleStockSync}
