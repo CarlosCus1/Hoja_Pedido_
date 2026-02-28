@@ -8,6 +8,9 @@ on:
   # Permitir ejecución manual desde GitHub
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   update-stock:
     runs-on: ubuntu-latest
@@ -15,6 +18,8 @@ jobs:
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -40,9 +45,11 @@ jobs:
       
       - name: Commit y push si hay cambios
         if: steps.verify-changes.outputs.has_changes == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add public/stock_data.json
           git commit -m "Actualizar stock desde appweb - $(date +'%Y-%m-%d %H:%M')"
-          git push
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
