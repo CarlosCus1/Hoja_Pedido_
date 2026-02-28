@@ -3,7 +3,9 @@ name: Actualizar Stock desde Appweb
 on:
   # Ejecutar automáticamente cada hora
   schedule:
-    - cron: '0 * * * *'
+    # ejecutar cada hora entre las 07:00 y las 23:00 (UTC)
+    # fuera de ese rango no hay necesidad de sincronizar, se usará el JSON manual
+    - cron: '0 7-23 * * *'
   
   # Permitir ejecución manual desde GitHub
   workflow_dispatch:
