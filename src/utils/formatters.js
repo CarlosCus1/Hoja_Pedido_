@@ -26,14 +26,14 @@ export function formatNumber(number) {
 }
 
 /**
- * Calcula el número de cajas basado en unidades y cantidad por caja
+ * Calcula el número de cajas (bx) basado en unidades y cantidad por caja
  * @param {number} unidades - Cantidad de unidades
- * @param {number} cantidadPorCaja - Cantidad de unidades por caja
+ * @param {number} bxSize - Cantidad de unidades por caja (bx)
  * @returns {number} - Número de cajas (redondeado a 2 decimales)
  */
-export function calcularCajas(unidades, cantidadPorCaja) {
-  if (!unidades || !cantidadPorCaja || cantidadPorCaja === 0) return 0;
-  return Math.round((unidades / cantidadPorCaja) * 100) / 100;
+export function calcularBx(unidades, bxSize) {
+  if (!unidades || !bxSize || bxSize === 0) return 0;
+  return Math.round((unidades / bxSize) * 100) / 100;
 }
 
 /**

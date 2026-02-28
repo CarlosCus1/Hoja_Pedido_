@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, Fragment, useRef } from 'react';
 import { useDebounce } from './hooks/useDebounce';
-import { formatMoney, calcularCajas, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, generarOCAutomatica, formatTimestamp } from './utils/formatters';
+import { formatMoney, calcularBx, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, generarOCAutomatica, formatTimestamp } from './utils/formatters';
 import { generateExcel } from './utils/xlsxGenerator';
 import { syncStock, loadStockFromIndexedDB, getStock, syncStockFromFile } from './services/stockService';
 
@@ -158,8 +158,8 @@ function App() {
   
   // Estado para cantidades en resultados de búsqueda
   const [searchQuantities, setSearchQuantities] = useState({});
-  // Modo de entrada: 'units' o 'boxes' (impacta cómo se interpretan números simples)
-  const [inputMode, setInputMode] = useState('units');
+  // Modo de entrada: 'un' o 'bx' (impacta cómo se interpretan números simples)
+  const [inputMode, setInputMode] = useState('un');
 
   // Estado para selección múltiple en resultados de búsqueda
   const [selectedForAdd, setSelectedForAdd] = useState({});
@@ -170,7 +170,7 @@ function App() {
   const [customProductData, setCustomProductData] = useState({
     nombre: '',
     precioLista: '',
-    cantidadPorCaja: '',
+    bxSize: '',
     cantidad: 1
   });
 
@@ -324,7 +324,7 @@ function App() {
           const normalizedData = data.map(p => ({
             codigo: p.codigo,
             nombre: p.nombre || '',
-            cantidadPorCaja: p.u_por_caja || p.cantidadPorCaja || 1,
+            bxSize: p.u_por_caja || p.bxSize || p.cantidadPorCaja || 1,
             precioLista: p.precio || p.precioLista || 0,
             ean: p.ean || '',
             linea: p.linea || '',
@@ -472,8 +472,8 @@ function App() {
       codigo,
       cantidad: data.cantidad,
       precioLista: data.precioLista,
-      cantidadPorCaja: data.cantidadPorCaja,
-      cajas: calcularCajas(data.cantidad, data.cantidadPorCaja),
+      bxSize: data.bxSize,
+      cajas: calcularBx(data.cantidad, data.bxSize),
       observacion: data.observacion || '',
       stock: stockData[codigo] || 0
     }));
@@ -525,7 +525,7 @@ function App() {
       newSelection[producto.codigo] = {
         cantidad: cantidad,
         precioLista: producto.precioLista,
-        cantidadPorCaja: producto.cantidadPorCaja,
+        bxSize: producto.bxSize,
         nombre: producto.nombre || ''
       };
       return newSelection;
@@ -538,42 +538,42 @@ function App() {
   // Helper para obtener etiqueta de equivalencia (ej. "1 Master = 72 und")
   const getMasterLabel = (codigo) => {
     const prod = productos.find(p => p.codigo === codigo);
-    const perMaster = prod?.cantidadPorCaja || 1;
-    return perMaster === 1 ? null : `1 Master = ${perMaster.toLocaleString()} und`;
+    const perMaster = prod?.bxSize || 1;
+    return perMaster === 1 ? null : `1 BX = ${perMaster.toLocaleString()} un`;
   };
 
   // Helper para mostrar cantidad en el input según el modo de entrada actual
   const getDisplayQuantity = (codigo, unidades) => {
-    if (inputMode === 'boxes') {
+    if (inputMode === 'bx') {
       const prod = productos.find(p => p.codigo === codigo);
-      const perBox = prod?.cantidadPorCaja || 1;
+      const perBox = prod?.bxSize || 1;
       if (perBox === 1) return unidades; // Si no hay cajas definidas, mostrar en unidades
       return Math.round((unidades / perBox) * 100) / 100; // Mostrar en cajas
     }
     return unidades; // Modo unidades: mostrar directamente
   };
 
-  // Parsear entradas de cantidad: soporta números y expresiones de cajas (ej. "10xC")
+  // Parsear entradas de cantidad: soporta números y expresiones de cajas (ej. "10xBx")
   const parseQuantityInput = (value, codigo) => {
     if (value === '' || value === null || value === undefined) return null;
     if (typeof value === 'number') return Math.max(0, Math.floor(value));
     const raw = String(value).trim().replace(/\./g, '').replace(/,/g, '');
 
-    // Formato cajas: 10xC, 10xCJ, 10xCaja (case-insensitive)
-    const boxMatch = raw.match(/^(\d+)\s*[xX*]\s*(c|cj|caja)?$/i);
+    // Formato cajas: 10xBx, 10xbx (case-insensitive)
+    const boxMatch = raw.match(/^(\d+)\s*[xX*]\s*(bx|b)?$/i);
     if (boxMatch) {
       const boxes = parseInt(boxMatch[1], 10) || 0;
       const prod = productos.find(p => p.codigo === codigo);
-      const perBox = prod?.cantidadPorCaja || 1;
+      const perBox = prod?.bxSize || 1;
       return Math.max(0, boxes * perBox);
     }
 
     const n = parseInt(raw, 10);
     if (isNaN(n)) return null;
-    // Si el modo de entrada global es 'boxes', interpretar números simples como cajas
-    if (inputMode === 'boxes') {
+    // Si el modo de entrada global es 'bx', interpretar números simples como cajas
+    if (inputMode === 'bx') {
       const prod = productos.find(p => p.codigo === codigo);
-      const perBox = prod?.cantidadPorCaja || 1;
+      const perBox = prod?.bxSize || 1;
       return Math.max(0, n * perBox);
     }
     return Math.max(0, n);
@@ -653,7 +653,7 @@ function App() {
           [producto.codigo]: {
             cantidad: cantidad,
             precioLista: producto.precioLista,
-            cantidadPorCaja: producto.cantidadPorCaja,
+            bxSize: producto.bxSize,
             nombre: producto.nombre || ''
           }
         }));
@@ -691,7 +691,7 @@ function App() {
         newSelection[producto.codigo] = {
           cantidad: 1,
           precioLista: producto.precioLista,
-          cantidadPorCaja: producto.cantidadPorCaja,
+          bxSize: producto.bxSize,
           nombre: producto.nombre || ''
         };
         return newSelection;
@@ -720,7 +720,7 @@ function App() {
       newSelection[code] = {
         cantidad: customData.cantidad || 1,
         precioLista: customData.precioLista || 0,
-        cantidadPorCaja: customData.cantidadPorCaja || 1,
+        bxSize: customData.bxSize || 1,
         nombre: customData.nombre || `Producto ${code}`,
         esPersonalizado: true
       };
@@ -902,21 +902,21 @@ function App() {
               <span className="text-sm text-slate-500 dark:text-slate-400 hidden sm:inline">
                 {productos.length} productos
               </span>
-              {/* Modo de entrada: Unidades / Cajas */}
+              {/* Modo de entrada: Un / Bx */}
               <div className="inline-flex items-center border rounded-lg overflow-hidden ml-2">
                 <button
-                  onClick={() => setInputMode('units')}
-                  className={`px-2 py-1 text-sm ${inputMode === 'units' ? 'bg-white dark:bg-slate-800 text-primary-600' : 'text-slate-600 dark:text-slate-400'}`}
+                  onClick={() => setInputMode('un')}
+                  className={`px-2 py-1 text-sm ${inputMode === 'un' ? 'bg-white dark:bg-slate-800 text-primary-600' : 'text-slate-600 dark:text-slate-400'}`}
                   title="Ingresar en unidades"
                 >
-                  Unidades
+                  Un
                 </button>
                 <button
-                  onClick={() => setInputMode('boxes')}
-                  className={`px-2 py-1 text-sm ${inputMode === 'boxes' ? 'bg-white dark:bg-slate-800 text-primary-600' : 'text-slate-600 dark:text-slate-400'}`}
+                  onClick={() => setInputMode('bx')}
+                  className={`px-2 py-1 text-sm ${inputMode === 'bx' ? 'bg-white dark:bg-slate-800 text-primary-600' : 'text-slate-600 dark:text-slate-400'}`}
                   title="Ingresar en cajas (convertirá a unidades)"
                 >
-                  Cajas
+                  Bx
                 </button>
               </div>
               {/* Botón actualizar stock */}
@@ -1324,7 +1324,7 @@ function App() {
                         </div>
                         <div className="text-right shrink-0">
                           <span className="text-xs text-slate-500 dark:text-slate-400">
-                            {producto.cantidadPorCaja}/cj
+                            {producto.bxSize} BX
                           </span>
                           <p className="text-xs font-mono text-slate-700 dark:text-slate-200">
                             {formatMoney(producto.precioLista)}
@@ -1486,11 +1486,11 @@ function App() {
                   </th>
                   <th 
                     className="px-4 py-3 text-center font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
-                    onClick={() => handleSort('cantidadPorCaja')}
+                    onClick={() => handleSort('bxSize')}
                   >
                     <div className="flex items-center justify-center gap-1">
-                      U/Caja
-                      {sortConfig.key === 'cantidadPorCaja' && (
+                      U/Bx
+                      {sortConfig.key === 'bxSize' && (
                         <span className="text-primary-600">
                           {sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
@@ -1541,7 +1541,7 @@ function App() {
                             <p className="line-clamp-2">{nombre}</p>
                           </td>
                           <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
-                            {producto.cantidadPorCaja}
+                            {producto.bxSize}
                           </td>
                           <td className="px-4 py-3 text-right font-mono text-slate-800 dark:text-slate-100">
                             {formatMoney(producto.precioLista)}
@@ -1552,7 +1552,7 @@ function App() {
                                 <input
                                   type="text"
                                   inputMode="numeric"
-                                  placeholder={inputMode === 'boxes' ? "e.g. 10 o 10xC" : "e.g. 100 o 10xC"}
+                                  placeholder={inputMode === 'bx' ? "e.g. 10 o 10xBx" : "e.g. 100 o 10xBx"}
                                   className="w-16 text-center border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm font-semibold dark:bg-slate-700 dark:text-slate-100"
                                   value={getDisplayQuantity(producto.codigo, producto.cantidad)}
                                   onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
@@ -1563,7 +1563,7 @@ function App() {
                                 )}
                               </div>
                               <span className="text-xs font-mono text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 px-2 py-1 rounded">
-                                {producto.cajas.toFixed(2) === '0.00' ? '0' : producto.cajas.toFixed(2)} cajas / {producto.cantidad} unid
+                                {producto.cajas.toFixed(2) === '0.00' ? '0' : producto.cajas.toFixed(2)} bx / {producto.cantidad} un
                               </span>
                             </div>
                           </td>
@@ -1684,8 +1684,8 @@ function App() {
                       {/* BLOQUE 2: DETALLES */}
                       <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Unidades/Caja</p>
-                          <p className="font-semibold text-slate-800 dark:text-slate-100">{producto.cantidadPorCaja}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Unidades/Bx</p>
+                          <p className="font-semibold text-slate-800 dark:text-slate-100">{producto.bxSize}</p>
                         </div>
                         <div>
                           <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Precio de lista <span className="normal-case font-normal">(solo referencia)</span></p>
@@ -1704,7 +1704,7 @@ function App() {
                             <input
                               type="text"
                               inputMode="numeric"
-                              placeholder={inputMode === 'boxes' ? "e.g. 10 o 10xC" : "e.g. 100 o 10xC"}
+                              placeholder={inputMode === 'bx' ? "e.g. 10 o 10xBx" : "e.g. 100 o 10xBx"}
                               className="flex-1 text-center text-xl font-semibold border-2 border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 dark:bg-slate-700 dark:text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
                               value={getDisplayQuantity(producto.codigo, producto.cantidad)}
                               onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
@@ -1716,7 +1716,7 @@ function App() {
                               <span className="text-slate-400 dark:text-slate-500">{getMasterLabel(producto.codigo)}</span>
                             )}
                             <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                              {producto.cajas.toFixed(2)} cajas
+                              {producto.cajas.toFixed(2)} bx
                             </span>
                           </div>
                         </div>
@@ -2016,8 +2016,8 @@ function App() {
                     type="number"
                     className="glass-input w-full"
                     placeholder="1"
-                    value={customProductData.cantidadPorCaja}
-                    onChange={(e) => setCustomProductData(prev => ({ ...prev, cantidadPorCaja: parseInt(e.target.value) || 1 }))}
+                    value={customProductData.bxSize}
+                    onChange={(e) => setCustomProductData(prev => ({ ...prev, bxSize: parseInt(e.target.value) || 1 }))}
                   />
                 </div>
               </div>
@@ -2039,7 +2039,7 @@ function App() {
                 onClick={() => {
                   setShowCustomProductForm(false);
                   setCodeNotFound(false);
-                  setCustomProductData({ nombre: '', precioLista: '', cantidadPorCaja: '', cantidad: 1 });
+                  setCustomProductData({ nombre: '', precioLista: '', bxSize: '', cantidad: 1 });
                   setSearch('');
                 }}
                 className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
