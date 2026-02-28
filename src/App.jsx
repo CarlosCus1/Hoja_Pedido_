@@ -1497,9 +1497,6 @@ function App() {
                       )}
                     </div>
                   </th>
-                  <th className="px-4 py-3 text-center font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700" onClick={() => handleSort('stock') }>
-                    Stock
-                  </th>
                   <th 
                     className="px-4 py-3 text-right font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
                     onClick={() => handleSort('precioLista')}
@@ -1513,8 +1510,7 @@ function App() {
                       )}
                     </div>
                   </th>
-                  <th className="px-2 py-3 text-center font-medium w-24">Cant.</th>
-                  <th className="px-4 py-3 text-center font-medium">Cajas</th>
+                  <th className="px-4 py-3 text-center font-medium">Cantidad</th>
                   <th className="px-2 py-3 text-center font-medium w-10" title="Observación">Obs.</th>
                   <th className="px-4 py-3 text-center font-medium w-16">Quitar</th>
                 </tr>
@@ -1522,7 +1518,7 @@ function App() {
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {selectedProductsArray.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                       No hay productos seleccionados. Use el buscador o ingrese un código para agregar productos.
                     </td>
                   </tr>
@@ -1544,39 +1540,32 @@ function App() {
                           <td className="px-4 py-3 text-slate-600 dark:text-slate-300 max-w-[12rem]">
                             <p className="line-clamp-2">{nombre}</p>
                           </td>
-                              <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
+                          <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
                             {producto.cantidadPorCaja}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {stockData[producto.codigo] > 0 ? (
-                              <span className="text-green-600 dark:text-green-400 font-medium" title="Stock disponible">
-                                {stockData[producto.codigo]}
-                              </span>
-                            ) : (
-                              <span className="text-red-500" title="Sin stock">0</span>
-                            )}
                           </td>
                           <td className="px-4 py-3 text-right font-mono text-slate-800 dark:text-slate-100">
                             {formatMoney(producto.precioLista)}
                           </td>
-                          <td className="px-2 py-3">
-                            <div className="flex flex-col items-center gap-1">
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                placeholder={inputMode === 'boxes' ? "e.g. 10 o 10xC" : "e.g. 100 o 10xC"}
-                                className="w-16 text-center border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm dark:bg-slate-700 dark:text-slate-100"
-                                value={getDisplayQuantity(producto.codigo, producto.cantidad)}
-                                onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
-                                onFocus={(e) => e.target.select()}
-                              />
-                              {getMasterLabel(producto.codigo) && (
-                                <span className="text-xs text-slate-400 dark:text-slate-500">{getMasterLabel(producto.codigo)}</span>
-                              )}
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="flex flex-col items-center gap-0.5">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  placeholder={inputMode === 'boxes' ? "e.g. 10 o 10xC" : "e.g. 100 o 10xC"}
+                                  className="w-16 text-center border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm font-semibold dark:bg-slate-700 dark:text-slate-100"
+                                  value={getDisplayQuantity(producto.codigo, producto.cantidad)}
+                                  onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
+                                  onFocus={(e) => e.target.select()}
+                                />
+                                {getMasterLabel(producto.codigo) && (
+                                  <span className="text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">{getMasterLabel(producto.codigo)}</span>
+                                )}
+                              </div>
+                              <span className="text-xs font-mono text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 px-2 py-1 rounded">
+                                {producto.cajas.toFixed(2) === '0.00' ? '0' : producto.cajas.toFixed(2)} cajas / {producto.cantidad} unid
+                              </span>
                             </div>
-                          </td>
-                          <td className="px-4 py-3 text-center font-mono text-slate-600 dark:text-slate-300">
-                            {producto.cajas.toFixed(2)}
                           </td>
                           <td className="px-2 py-3 text-center">
                             <button
@@ -1612,7 +1601,7 @@ function App() {
                         {/* Fila expandible para observación */}
                         {isExpanded && (
                           <tr key={`${producto.codigo}-obs`} className="bg-slate-50 dark:bg-slate-800/50">
-                            <td colSpan={8} className="px-4 py-2">
+                            <td colSpan={6} className="px-4 py-2">
                               <div className="flex items-start gap-2">
                                 <span className="text-xs text-slate-500 dark:text-slate-400 mt-2">Obs:</span>
                                 <textarea
