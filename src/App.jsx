@@ -472,11 +472,24 @@ function App() {
       precioLista: data.precioLista,
       cantidadPorCaja: data.cantidadPorCaja,
       cajas: calcularCajas(data.cantidad, data.cantidadPorCaja),
-      observacion: data.observacion || ''
+      observacion: data.observacion || '',
+      stock: stockData[codigo] || 0
     }));
-    // Ordenar por código ascendente
-    return products.sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
-  }, [selectedProducts]);
+    // Ordenar según sortConfig (soporta stock también)
+    return products.sort((a, b) => {
+      const key = sortConfig.key;
+      let aValue = a[key];
+      let bValue = b[key];
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+      aValue = String(aValue || '').toLowerCase();
+      bValue = String(bValue || '').toLowerCase();
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [selectedProducts, sortConfig, stockData]);
 
   // Total de productos seleccionados
   const totalSelected = Object.keys(selectedProducts).length;
@@ -1245,6 +1258,15 @@ function App() {
                           <p className="text-xs font-mono text-slate-700 dark:text-slate-200">
                             {formatMoney(producto.precioLista)}
                           </p>
+                          <p className="text-xs mt-1">
+                            {stockData[producto.codigo] > 0 ? (
+                              <span className="text-green-600 dark:text-green-400 font-medium" title="Stock disponible">
+                                {stockData[producto.codigo]}
+                              </span>
+                            ) : (
+                              <span className="text-red-500" title="Sin stock">0</span>
+                            )}
+                          </p>
                         </div>
                       </div>
                       
@@ -1398,6 +1420,9 @@ function App() {
                       )}
                     </div>
                   </th>
+                  <th className="px-4 py-3 text-center font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700" onClick={() => handleSort('stock') }>
+                    Stock
+                  </th>
                   <th 
                     className="px-4 py-3 text-right font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
                     onClick={() => handleSort('precioLista')}
@@ -1442,8 +1467,26 @@ function App() {
                           <td className="px-4 py-3 text-slate-600 dark:text-slate-300 max-w-[12rem]">
                             <p className="line-clamp-2">{nombre}</p>
                           </td>
-                          <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
+                              <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
                             {producto.cantidadPorCaja}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {stockData[producto.codigo] > 0 ? (
+                              <span className="text-green-600 dark:text-green-400 font-medium" title="Stock disponible">
+                                {stockData[producto.codigo]}
+                              </span>
+                            ) : (
+                              <span className="text-red-500" title="Sin stock">0</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {stockData[producto.codigo] > 0 ? (
+                              <span className="text-green-600 dark:text-green-400 font-medium" title="Stock disponible">
+                                {stockData[producto.codigo]}
+                              </span>
+                            ) : (
+                              <span className="text-red-500" title="Sin stock">0</span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-right font-mono text-slate-800 dark:text-slate-100">
                             {formatMoney(producto.precioLista)}
@@ -1554,6 +1597,9 @@ function App() {
                             </p>
                             <p className="text-sm text-slate-700 dark:text-slate-300 mt-1 line-clamp-2 leading-snug" title={nombre}>
                               {nombre}
+                            </p>
+                            <p className="text-xs mt-2">
+                              Stock: {stockData[producto.codigo] ?? 0}
                             </p>
                           </div>
                           <button
