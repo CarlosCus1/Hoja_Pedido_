@@ -533,9 +533,29 @@ function App() {
     setSearchQuantities({});
   };
 
+  // Parsear entradas de cantidad: soporta números y expresiones de cajas (ej. "10xC")
+  const parseQuantityInput = (value, codigo) => {
+    if (value === '' || value === null || value === undefined) return null;
+    if (typeof value === 'number') return Math.max(0, Math.floor(value));
+    const raw = String(value).trim().replace(/\./g, '').replace(/,/g, '');
+
+    // Formato cajas: 10xC, 10xCJ, 10xCaja (case-insensitive)
+    const boxMatch = raw.match(/^(\d+)\s*[xX*]\s*(c|cj|caja)?$/i);
+    if (boxMatch) {
+      const boxes = parseInt(boxMatch[1], 10) || 0;
+      const prod = productos.find(p => p.codigo === codigo);
+      const perBox = prod?.cantidadPorCaja || 1;
+      return Math.max(0, boxes * perBox);
+    }
+
+    const n = parseInt(raw, 10);
+    return isNaN(n) ? null : Math.max(0, n);
+  };
+
   // Manejar cambio de cantidad en resultados de búsqueda
   const handleSearchQuantityChange = (codigo, value) => {
-    const qty = Math.max(1, parseInt(value, 10) || 1);
+    const parsed = parseQuantityInput(value, codigo);
+    const qty = parsed === null ? 1 : Math.max(1, parsed);
     setSearchQuantities(prev => ({
       ...prev,
       [codigo]: qty
@@ -700,8 +720,9 @@ function App() {
       setShowQuantityConfirm(true);
       return;
     }
-    
-    const quantity = Math.max(0, parseInt(newQuantity, 10) || 0);
+    // Permitir entradas tipo "10xC" para cajas o números directos
+    const parsed = parseQuantityInput(newQuantity, codigo);
+    const quantity = Math.max(0, parsed || 0);
     
     setSelectedProducts(prev => {
       if (quantity === 0) {
@@ -1178,8 +1199,9 @@ function App() {
                           </td>
                           <td className="px-2 py-2 text-center">
                             <input
-                              type="number"
-                              min="1"
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="e.g. 100 or 10xC"
                               className={`w-14 text-center border border-slate-300 dark:border-slate-600 rounded py-1 text-sm dark:bg-slate-700 dark:text-slate-100 ${alreadySelected ? 'bg-slate-100 dark:bg-slate-700 cursor-not-allowed' : ''}`}
                               value={qty}
                               disabled={alreadySelected}
@@ -1276,8 +1298,9 @@ function App() {
                           Cant:
                         </label>
                         <input
-                          type="number"
-                          min="1"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="e.g. 100 or 10xC"
                           className={`flex-1 text-center border border-slate-300 dark:border-slate-600 rounded py-1.5 px-2 text-sm dark:bg-slate-700 dark:text-slate-100 ${alreadySelected ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
                           value={qty}
                           disabled={alreadySelected}
@@ -1484,12 +1507,13 @@ function App() {
                           </td>
                           <td className="px-2 py-3">
                             <input
-                              type="number"
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="e.g. 100 or 10xC"
                               className="w-16 text-center border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm dark:bg-slate-700 dark:text-slate-100"
                               value={producto.cantidad}
                               onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
                               onFocus={(e) => e.target.select()}
-                              min="1"
                             />
                           </td>
                           <td className="px-4 py-3 text-center font-mono text-slate-600 dark:text-slate-300">
@@ -1629,13 +1653,13 @@ function App() {
                             Cantidad:
                           </label>
                           <input
-                            type="number"
+                            type="text"
                             inputMode="numeric"
+                            placeholder="e.g. 100 or 10xC"
                             className="flex-1 text-center text-xl font-semibold border-2 border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 dark:bg-slate-700 dark:text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
                             value={producto.cantidad}
                             onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            min="1"
                           />
                           <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
                             {producto.cajas.toFixed(2)} cajas
