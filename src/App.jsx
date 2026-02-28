@@ -542,6 +542,17 @@ function App() {
     return perMaster === 1 ? null : `1 Master = ${perMaster.toLocaleString()} und`;
   };
 
+  // Helper para mostrar cantidad en el input según el modo de entrada actual
+  const getDisplayQuantity = (codigo, unidades) => {
+    if (inputMode === 'boxes') {
+      const prod = productos.find(p => p.codigo === codigo);
+      const perBox = prod?.cantidadPorCaja || 1;
+      if (perBox === 1) return unidades; // Si no hay cajas definidas, mostrar en unidades
+      return Math.round((unidades / perBox) * 100) / 100; // Mostrar en cajas
+    }
+    return unidades; // Modo unidades: mostrar directamente
+  };
+
   // Parsear entradas de cantidad: soporta números y expresiones de cajas (ej. "10xC")
   const parseQuantityInput = (value, codigo) => {
     if (value === '' || value === null || value === undefined) return null;
@@ -1235,9 +1246,9 @@ function App() {
                               <input
                                 type="text"
                                 inputMode="numeric"
-                                placeholder="e.g. 100 or 10xC"
+                                placeholder={inputMode === 'boxes' ? "e.g. 10 o 10xC" : "e.g. 100 o 10xC"}
                                 className={`w-14 text-center border border-slate-300 dark:border-slate-600 rounded py-1 text-sm dark:bg-slate-700 dark:text-slate-100 ${alreadySelected ? 'bg-slate-100 dark:bg-slate-700 cursor-not-allowed' : ''}`}
-                                value={qty}
+                                value={getDisplayQuantity(producto.codigo, qty)}
                                 disabled={alreadySelected}
                                 onChange={(e) => handleSearchQuantityChange(producto.codigo, e.target.value)}
                                 onFocus={(e) => e.target.select()}
@@ -1339,9 +1350,9 @@ function App() {
                           <input
                             type="text"
                             inputMode="numeric"
-                            placeholder="e.g. 100 or 10xC"
+                            placeholder={inputMode === 'boxes' ? "e.g. 10 o 10xC" : "e.g. 100 o 10xC"}
                             className={`flex-1 text-center border border-slate-300 dark:border-slate-600 rounded py-1.5 px-2 text-sm dark:bg-slate-700 dark:text-slate-100 ${alreadySelected ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
-                            value={qty}
+                            value={getDisplayQuantity(producto.codigo, qty)}
                             disabled={alreadySelected}
                             onChange={(e) => handleSearchQuantityChange(producto.codigo, e.target.value)}
                             onFocus={(e) => e.target.select()}
@@ -1553,9 +1564,9 @@ function App() {
                               <input
                                 type="text"
                                 inputMode="numeric"
-                                placeholder="e.g. 100 or 10xC"
+                                placeholder={inputMode === 'boxes' ? "e.g. 10 o 10xC" : "e.g. 100 o 10xC"}
                                 className="w-16 text-center border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm dark:bg-slate-700 dark:text-slate-100"
-                                value={producto.cantidad}
+                                value={getDisplayQuantity(producto.codigo, producto.cantidad)}
                                 onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
                                 onFocus={(e) => e.target.select()}
                               />
@@ -1704,9 +1715,9 @@ function App() {
                             <input
                               type="text"
                               inputMode="numeric"
-                              placeholder="e.g. 100 or 10xC"
+                              placeholder={inputMode === 'boxes' ? "e.g. 10 o 10xC" : "e.g. 100 o 10xC"}
                               className="flex-1 text-center text-xl font-semibold border-2 border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 dark:bg-slate-700 dark:text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
-                              value={producto.cantidad}
+                              value={getDisplayQuantity(producto.codigo, producto.cantidad)}
                               onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
                               onFocus={(e) => e.target.select()}
                             />
