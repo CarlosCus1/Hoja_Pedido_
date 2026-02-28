@@ -1445,7 +1445,7 @@ function App() {
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {selectedProductsArray.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                    <td colSpan={9} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                       No hay productos seleccionados. Use el buscador o ingrese un código para agregar productos.
                     </td>
                   </tr>
@@ -1469,15 +1469,6 @@ function App() {
                           </td>
                               <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
                             {producto.cantidadPorCaja}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {stockData[producto.codigo] > 0 ? (
-                              <span className="text-green-600 dark:text-green-400 font-medium" title="Stock disponible">
-                                {stockData[producto.codigo]}
-                              </span>
-                            ) : (
-                              <span className="text-red-500" title="Sin stock">0</span>
-                            )}
                           </td>
                           <td className="px-4 py-3 text-center">
                             {stockData[producto.codigo] > 0 ? (
