@@ -535,6 +535,13 @@ function App() {
     setSearchQuantities({});
   };
 
+  // Helper para obtener etiqueta de equivalencia (ej. "1 Master = 72 und")
+  const getMasterLabel = (codigo) => {
+    const prod = productos.find(p => p.codigo === codigo);
+    const perMaster = prod?.cantidadPorCaja || 1;
+    return perMaster === 1 ? null : `1 Master = ${perMaster.toLocaleString()} und`;
+  };
+
   // Parsear entradas de cantidad: soporta números y expresiones de cajas (ej. "10xC")
   const parseQuantityInput = (value, codigo) => {
     if (value === '' || value === null || value === undefined) return null;
@@ -1224,16 +1231,21 @@ function App() {
                             {formatMoney(producto.precioLista)}
                           </td>
                           <td className="px-2 py-2 text-center">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              placeholder="e.g. 100 or 10xC"
-                              className={`w-14 text-center border border-slate-300 dark:border-slate-600 rounded py-1 text-sm dark:bg-slate-700 dark:text-slate-100 ${alreadySelected ? 'bg-slate-100 dark:bg-slate-700 cursor-not-allowed' : ''}`}
-                              value={qty}
-                              disabled={alreadySelected}
-                              onChange={(e) => handleSearchQuantityChange(producto.codigo, e.target.value)}
-                              onFocus={(e) => e.target.select()}
-                            />
+                            <div className="flex flex-col items-center gap-1">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="e.g. 100 or 10xC"
+                                className={`w-14 text-center border border-slate-300 dark:border-slate-600 rounded py-1 text-sm dark:bg-slate-700 dark:text-slate-100 ${alreadySelected ? 'bg-slate-100 dark:bg-slate-700 cursor-not-allowed' : ''}`}
+                                value={qty}
+                                disabled={alreadySelected}
+                                onChange={(e) => handleSearchQuantityChange(producto.codigo, e.target.value)}
+                                onFocus={(e) => e.target.select()}
+                              />
+                              {getMasterLabel(producto.codigo) && (
+                                <span className="text-xs text-slate-400 dark:text-slate-500">{getMasterLabel(producto.codigo)}</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-2 py-2 text-center">
                             {alreadySelected ? (
@@ -1319,24 +1331,29 @@ function App() {
                       </div>
                       
                       {/* Segunda línea: Cantidad + Botón */}
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                          Cant:
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="e.g. 100 or 10xC"
-                          className={`flex-1 text-center border border-slate-300 dark:border-slate-600 rounded py-1.5 px-2 text-sm dark:bg-slate-700 dark:text-slate-100 ${alreadySelected ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
-                          value={qty}
-                          disabled={alreadySelected}
-                          onChange={(e) => handleSearchQuantityChange(producto.codigo, e.target.value)}
-                          onFocus={(e) => e.target.select()}
-                        />
-                        {alreadySelected ? (
-                          <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-400">En pedido</span>
-                        ) : (
-                          <span className="px-3 py-1.5 text-sm text-slate-500 dark:text-slate-400">Marcar</span>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                            Cant:
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="e.g. 100 or 10xC"
+                            className={`flex-1 text-center border border-slate-300 dark:border-slate-600 rounded py-1.5 px-2 text-sm dark:bg-slate-700 dark:text-slate-100 ${alreadySelected ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
+                            value={qty}
+                            disabled={alreadySelected}
+                            onChange={(e) => handleSearchQuantityChange(producto.codigo, e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                          />
+                          {alreadySelected ? (
+                            <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-400">En pedido</span>
+                          ) : (
+                            <span className="px-3 py-1.5 text-sm text-slate-500 dark:text-slate-400">Marcar</span>
+                          )}
+                        </div>
+                        {getMasterLabel(producto.codigo) && (
+                          <span className="text-xs text-slate-400 dark:text-slate-500 ml-auto">{getMasterLabel(producto.codigo)}</span>
                         )}
                       </div>
                     </div>
@@ -1532,15 +1549,20 @@ function App() {
                             {formatMoney(producto.precioLista)}
                           </td>
                           <td className="px-2 py-3">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              placeholder="e.g. 100 or 10xC"
-                              className="w-16 text-center border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm dark:bg-slate-700 dark:text-slate-100"
-                              value={producto.cantidad}
-                              onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
-                              onFocus={(e) => e.target.select()}
-                            />
+                            <div className="flex flex-col items-center gap-1">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="e.g. 100 or 10xC"
+                                className="w-16 text-center border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm dark:bg-slate-700 dark:text-slate-100"
+                                value={producto.cantidad}
+                                onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
+                                onFocus={(e) => e.target.select()}
+                              />
+                              {getMasterLabel(producto.codigo) && (
+                                <span className="text-xs text-slate-400 dark:text-slate-500">{getMasterLabel(producto.codigo)}</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-center font-mono text-slate-600 dark:text-slate-300">
                             {producto.cajas.toFixed(2)}
@@ -1674,22 +1696,29 @@ function App() {
                       {/* BLOQUE 3: INTERACCIÓN */}
                       <div className="p-4 space-y-3">
                         {/* Input de cantidad directo sin botones +/- */}
-                        <div className="flex items-center gap-3">
-                          <label className="text-sm font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                            Cantidad:
-                          </label>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            placeholder="e.g. 100 or 10xC"
-                            className="flex-1 text-center text-xl font-semibold border-2 border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 dark:bg-slate-700 dark:text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
-                            value={producto.cantidad}
-                            onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
-                            onFocus={(e) => e.target.select()}
-                          />
-                          <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                            {producto.cajas.toFixed(2)} cajas
-                          </span>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-3">
+                            <label className="text-sm font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                              Cantidad:
+                            </label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="e.g. 100 or 10xC"
+                              className="flex-1 text-center text-xl font-semibold border-2 border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 dark:bg-slate-700 dark:text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                              value={producto.cantidad}
+                              onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            {getMasterLabel(producto.codigo) && (
+                              <span className="text-slate-400 dark:text-slate-500">{getMasterLabel(producto.codigo)}</span>
+                            )}
+                            <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                              {producto.cajas.toFixed(2)} cajas
+                            </span>
+                          </div>
                         </div>
 
                         {/* Observaciones colapsable */}
