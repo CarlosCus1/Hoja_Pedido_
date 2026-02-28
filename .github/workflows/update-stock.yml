@@ -1,0 +1,48 @@
+name: Actualizar Stock desde Appweb
+
+on:
+  # Ejecutar automáticamente cada hora
+  schedule:
+    - cron: '0 * * * *'
+  
+  # Permitir ejecución manual desde GitHub
+  workflow_dispatch:
+
+jobs:
+  update-stock:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+      
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Instalar dependencias
+        run: npm install xlsx
+      
+      - name: Descargar y parsear stock
+        run: node scripts/download-stock.js
+      
+      - name: Verificar cambios
+        id: verify-changes
+        run: |
+          if git diff --quiet public/stock_data.json; then
+            echo "No hay cambios en el stock"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Hay cambios en el stock"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Commit y push si hay cambios
+        if: steps.verify-changes.outputs.has_changes == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add public/stock_data.json
+          git commit -m "Actualizar stock desde appweb - $(date +'%Y-%m-%d %H:%M')"
+          git push

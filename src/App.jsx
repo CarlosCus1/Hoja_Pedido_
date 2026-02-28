@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useCallback, Fragment, useRef } from 'react';
 import { useDebounce } from './hooks/useDebounce';
-import { formatMoney, calcularCajas, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, generarOCAutomatica } from './utils/formatters';
+import { formatMoney, calcularCajas, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, generarOCAutomatica, formatTimestamp } from './utils/formatters';
 import { generateExcel } from './utils/xlsxGenerator';
+import { syncStock, loadStockFromIndexedDB, getStock, syncStockFromFile } from './services/stockService';
 
 // Nombre de la base de datos IndexedDB
 const DB_NAME = 'HojaPedidoDB';
-const DB_VERSION = 3; // Incrementamos la versión para forzar recarga con nombres de productos
+const DB_VERSION = 4; // Incrementamos para agregar store de stock
 
 // Variable global para controlar si se necesita recargar
 let needsReloadFromUpgrade = false;
@@ -38,6 +39,11 @@ function initDB() {
       // Store para selección actual
       if (!db.objectStoreNames.contains('seleccion')) {
         db.createObjectStore('seleccion', { keyPath: 'id' });
+      }
+
+      // Store para stock de la API
+      if (!db.objectStoreNames.contains('stockAPI')) {
+        db.createObjectStore('stockAPI', { keyPath: 'sku' });
       }
     };
   });
@@ -128,6 +134,14 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Estado de stock desde appweb
+  const [stockData, setStockData] = useState({});
+  const [stockLoading, setStockLoading] = useState(false);
+  const [stockLastSync, setStockLastSync] = useState(null);
+  const [stockTimestamp, setStockTimestamp] = useState(null);
+  const [stockError, setStockError] = useState(null);
+  const stockFileInputRef = useRef(null);
+
   // Estado del cliente
   const [clientData, setClientData] = useState({
     ruc: '',
@@ -196,6 +210,70 @@ function App() {
 
   // Toggle tema
   const toggleDarkMode = () => setDarkMode(prev => !prev);
+
+  // Sincronizar stock desde appweb
+  const handleStockSync = async () => {
+    setStockLoading(true);
+    setStockError(null);
+    
+    try {
+      const result = await syncStock();
+      
+      if (result.success) {
+        setStockData(result.stock);
+        setStockLastSync(result.timestamp);
+        setStockTimestamp(result.timestamp);
+        alert(`Stock actualizado: ${result.count} productos sincronizados`);
+      } else {
+        setStockError(result.error);
+        alert(`Error al actualizar stock: ${result.error}\n\nNota: La appweb no permite conexión directa. Use el botón "Cargar Archivo" para importar un Excel.`);
+      }
+    } catch (err) {
+      console.error('Error sincronizando stock:', err);
+      setStockError(err.message);
+      alert(`Error al conectar con el servidor: ${err.message}\n\nUse el botón "Cargar Archivo" para importar un Excel.`);
+    } finally {
+      setStockLoading(false);
+    }
+  };
+
+  // Cargar stock desde archivo Excel/JSON
+  const handleStockFileUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setStockLoading(true);
+    setStockError(null);
+
+    try {
+      const result = await syncStockFromFile(file);
+      
+      if (result.success) {
+        setStockData(result.stock);
+        setStockLastSync(result.timestamp);
+        setStockTimestamp(result.timestamp);
+        alert(`Stock actualizado: ${result.count} productos cargados desde archivo`);
+      } else {
+        setStockError(result.error);
+        alert(`Error al procesar archivo: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('Error cargando archivo:', err);
+      setStockError(err.message);
+      alert(`Error al procesar archivo: ${err.message}`);
+    } finally {
+      setStockLoading(false);
+      // Limpiar el input
+      if (stockFileInputRef.current) {
+        stockFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Trigger para input file
+  const triggerStockFileUpload = () => {
+    stockFileInputRef.current?.click();
+  };
 
   // Toggle observación expandida
   const toggleObservation = (codigo) => {
@@ -296,6 +374,16 @@ function App() {
     }
 
     loadData();
+    
+    // Cargar stock guardado en IndexedDB al iniciar
+    loadStockFromIndexedDB()
+      .then(savedStock => {
+        if (savedStock && Object.keys(savedStock).length > 0) {
+          setStockData(savedStock);
+          setStockLastSync(localStorage.getItem('stockLastSync'));
+        }
+      })
+      .catch(err => console.error('Error cargando stock guardado:', err));
   }, []);
 
   // Guardar selección en IndexedDB cuando cambie
@@ -317,6 +405,13 @@ function App() {
       saveSelection();
     }
   }, [selectedProducts, clientData]);
+
+  // Guardar fecha de sincronización de stock en localStorage
+  useEffect(() => {
+    if (stockLastSync) {
+      localStorage.setItem('stockLastSync', stockLastSync);
+    }
+  }, [stockLastSync]);
 
   // Filtrar productos según búsqueda (por código o nombre)
   const filteredProducts = useMemo(() => {
@@ -746,7 +841,56 @@ function App() {
               <span className="text-sm text-slate-500 dark:text-slate-400 hidden sm:inline">
                 {productos.length} productos
               </span>
+              {/* Botón actualizar stock */}
+              <button
+                onClick={handleStockSync}
+                disabled={stockLoading}
+                className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+                title={stockLastSync ? 'Última actualización: ' + new Date(stockLastSync).toLocaleString() : 'Sincronizar stock desde appweb'}
+              >
+                {stockLoading ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Cargando...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Stock
+                  </>
+                )}
+              </button>
+              {/* Botón cargar archivo */}
+              <button
+                onClick={triggerStockFileUpload}
+                disabled={stockLoading}
+                className="px-3 py-1.5 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+                title="Cargar archivo Excel o JSON con stock"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Cargar
+              </button>
+              {/* Input file oculto */}
+              <input
+                ref={stockFileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.json"
+                onChange={handleStockFileUpload}
+                className="hidden"
+              />
             </div>
+            {stockTimestamp && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Última actualización: {formatTimestamp(stockTimestamp)}
+          </p>
+        )}
           </div>
         </div>
       </header>
@@ -968,6 +1112,7 @@ function App() {
                       <th className="px-2 py-2 text-left font-medium">Código</th>
                       <th className="px-2 py-2 text-left font-medium">Nombre</th>
                       <th className="px-2 py-2 text-center font-medium">U/Caja</th>
+                      <th className="px-2 py-2 text-center font-medium">Stock</th>
                       <th className="px-2 py-2 text-right font-medium">Precio</th>
                       <th className="px-2 py-2 text-center font-medium w-20">Cant.</th>
                       <th className="px-2 py-2 text-center font-medium w-20">Seleccionar</th>
@@ -1005,6 +1150,15 @@ function App() {
                           </td>
                           <td className="px-2 py-2 text-center text-slate-600 dark:text-slate-300 text-sm">
                             {producto.cantidadPorCaja}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            {stockData[producto.codigo] > 0 ? (
+                              <span className="text-green-600 dark:text-green-400 font-medium" title="Stock disponible">
+                                {stockData[producto.codigo]}
+                              </span>
+                            ) : (
+                              <span className="text-red-500" title="Sin stock">0</span>
+                            )}
                           </td>
                           <td className="px-2 py-2 text-right font-mono text-slate-800 dark:text-slate-100 text-sm">
                             {formatMoney(producto.precioLista)}
