@@ -102,24 +102,26 @@ export async function getStockBySku(sku) {
  */
 export async function fetchStockFromAPI() {
   try {
-    console.log('Cargando stock desde archivo JSON...');
-
     // Intentar cargar desde el archivo generado por GitHub Actions
-    const response = await fetch('./stock_data.json');
+    const response = await fetch('./stock_data.json', { 
+      signal: AbortSignal.timeout(2000) // Timeout de 2 segundos
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const result = await response.json();
-
-    console.log(`Stock cargado: ${result.count} productos`);
+    console.log(`Stock actualizado desde API: ${result.count} productos`);
     return result;
 
   } catch (error) {
-    console.error('Error cargando stock:', error);
+    // No loguear si es un error de fetch (archivo no existe), es normal
+    if (error.name === 'AbortError' || error.message.includes('Failed to fetch')) {
+      throw new Error('El archivo de stock no está disponible. Usa el botón "Cargar" para importar el Excel manualmente.');
+    }
     
-    // Si no existe el archivo, informar al usuario
+    console.error('Error cargando stock:', error);
     throw new Error('El archivo de stock no está disponible. Usa el botón "Cargar" para importar el Excel manualmente.');
   }
 }
