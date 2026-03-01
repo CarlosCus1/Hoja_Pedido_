@@ -38,7 +38,7 @@
 
 import { useState, useEffect, useMemo, useCallback, Fragment, useRef } from 'react';
 import { useDebounce } from './hooks/useDebounce';
-import { formatMoney, calcularBx, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, formatTimestamp } from './utils/formatters';
+import { formatMoney, calcularBx, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, formatTimestamp, getTimeAgo, getStockAgeColor } from './utils/formatters';
 import { generateExcel } from './utils/xlsxGenerator';
 import { syncStock, loadStockFromIndexedDB, getStock, syncStockFromFile, parsePedidoFile } from './services/stockService';
 
@@ -1080,8 +1080,16 @@ function App() {
       {/* Barra de información de stock - Estilo corporativo */}
       <section className="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-slate-800 dark:to-indigo-950 border-b border-indigo-100 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 py-1.5">
-          <div className="flex items-center justify-end text-[10px] text-slate-500 dark:text-slate-400">
-            <span>Stock: {stockTimestamp ? formatTimestamp(stockTimestamp) : 'No sincronizado'}</span>
+          <div className="flex items-center justify-end text-[10px]">
+            {stockTimestamp ? (
+              <span className={`flex items-center gap-1 ${getStockAgeColor(stockTimestamp)}`}>
+                <span className="font-medium">Stock:</span>
+                <span>{formatTimestamp(stockTimestamp)}</span>
+                <span className="opacity-75">({getTimeAgo(stockTimestamp)})</span>
+              </span>
+            ) : (
+              <span className="text-slate-500 dark:text-slate-400">Stock: No sincronizado</span>
+            )}
           </div>
         </div>
       </section>

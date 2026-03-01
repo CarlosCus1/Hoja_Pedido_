@@ -134,3 +134,50 @@ export function formatTimestamp(isoTimestamp) {
 
   return date.toLocaleDateString('es-PE');
 }
+
+/**
+ * Calcula el tiempo transcurrido desde un timestamp hasta ahora
+ * Devuelve un string descriptivo como "hace 2 horas", "hace 30 min", etc.
+ * 
+ * @param {string} isoTimestamp - Timestamp ISO 8601
+ * @returns {string} - Descripción del tiempo transcurrido
+ */
+export function getTimeAgo(isoTimestamp) {
+  if (!isoTimestamp) return '';
+  
+  const date = new Date(isoTimestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'hace un momento';
+  if (diffMins < 60) return `hace ${diffMins} min`;
+  if (diffHours < 24) return `hace ${diffHours}h`;
+  if (diffDays === 1) return 'hace 1 día';
+  return `hace ${diffDays} días`;
+}
+
+/**
+ * Obtiene el color de estado según la antigüedad del stock
+ * - Verde: menos de 2 horas
+ * - Amarillo: entre 2 y 6 horas
+ * - Naranja: entre 6 y 24 horas
+ * - Rojo: más de 24 horas
+ * 
+ * @param {string} isoTimestamp - Timestamp ISO 8601
+ * @returns {string} - Clase de color Tailwind
+ */
+export function getStockAgeColor(isoTimestamp) {
+  if (!isoTimestamp) return 'text-slate-400';
+  
+  const date = new Date(isoTimestamp);
+  const now = new Date();
+  const diffHours = (now - date) / 3600000;
+  
+  if (diffHours < 2) return 'text-green-600 dark:text-green-400';
+  if (diffHours < 6) return 'text-amber-600 dark:text-amber-400';
+  if (diffHours < 24) return 'text-orange-600 dark:text-orange-400';
+  return 'text-red-600 dark:text-red-400';
+}
