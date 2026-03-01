@@ -84,6 +84,9 @@ jobs:
           git fetch origin gh-pages
           git checkout gh-pages
           
+          # Crear directorio public si no existe (gh-pages tiene estructura diferente)
+          mkdir -p public
+          
           # Copiar el archivo actualizado
           cp /tmp/stock_data.json public/stock_data.json
           
