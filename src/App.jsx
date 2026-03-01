@@ -40,7 +40,7 @@ import { useState, useEffect, useMemo, useCallback, Fragment, useRef } from 'rea
 import { useDebounce } from './hooks/useDebounce';
 import { formatMoney, calcularBx, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, formatTimestamp, getTimeAgo, getStockAgeColor } from './utils/formatters';
 import { generateExcel } from './utils/xlsxGenerator';
-import { syncStock, loadStockFromIndexedDB, getStock, syncStockFromFile, parsePedidoFile } from './services/stockService';
+import { syncStock, loadStockFromIndexedDB, getStock, syncStockFromFile, parsePedidoFile, loadStockTimestamp } from './services/stockService';
 
 // Nombre de la base de datos IndexedDB
 const DB_NAME = 'HojaPedidoDB';
@@ -444,11 +444,12 @@ function App() {
     loadData();
     
     // Cargar stock guardado en IndexedDB al iniciar
-    loadStockFromIndexedDB()
-      .then(savedStock => {
+    Promise.all([loadStockFromIndexedDB(), loadStockTimestamp()])
+      .then(([savedStock, savedTimestamp]) => {
         if (savedStock && Object.keys(savedStock).length > 0) {
           setStockData(savedStock);
-          setStockLastSync(localStorage.getItem('stockLastSync'));
+          setStockLastSync(savedTimestamp || localStorage.getItem('stockLastSync'));
+          setStockTimestamp(savedTimestamp || localStorage.getItem('stockLastSync'));
         }
       })
       .catch(err => console.error('Error cargando stock guardado:', err));

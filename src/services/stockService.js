@@ -67,9 +67,45 @@ export async function loadStockFromIndexedDB() {
       // Convertir array a objeto { sku: disponible }
       const stockObj = {};
       request.result.forEach(item => {
-        stockObj[item.sku] = item.disponible;
+        if (item.sku !== '__metadata') {
+          stockObj[item.sku] = item.disponible;
+        }
       });
       resolve(stockObj);
+    };
+
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Guarda el timestamp de sincronización en IndexedDB
+ * @param {string} timestamp - Timestamp de la última sincronización
+ */
+export async function saveStockTimestamp(timestamp) {
+  const db = await initStockDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('stockAPI', 'readwrite');
+    const store = transaction.objectStore('stockAPI');
+    store.put({ sku: '__metadata', timestamp });
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+/**
+ * Carga el timestamp de sincronización desde IndexedDB
+ * @returns {Promise<string|null>} Timestamp guardado o null si no existe
+ */
+export async function loadStockTimestamp() {
+  const db = await initStockDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('stockAPI', 'readonly');
+    const store = transaction.objectStore('stockAPI');
+    const request = store.get('__metadata');
+
+    request.onsuccess = () => {
+      resolve(request.result?.timestamp || null);
     };
 
     request.onerror = () => reject(request.error);
@@ -182,24 +218,19 @@ export async function syncStock() {
     
     // Si no hay stock en el servidor, retornar éxito pero vacío
     if (!stockData) {
+      const timestamp = new Date().toISOString();
+      await saveStockTimestamp(timestamp);
       return {
         success: true,
         stock: {},
         count: 0,
-        timestamp: new Date().toLocaleString('es-PE', {
-          timeZone: 'America/Lima',
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        }),
+        timestamp,
         source: 'catalogo'
       };
     }
     
     await saveStockToIndexedDB(stockData.data);
+    await saveStockTimestamp(stockData.timestamp);
     
     // Convertir a objeto para uso rápido
     const stockObj = {};
@@ -261,6 +292,9 @@ export async function syncStockFromFile(file) {
 
     await saveStockToIndexedDB(stockData);
     
+    const timestamp = new Date().toISOString();
+    await saveStockTimestamp(timestamp);
+    
     // Convertir a objeto para uso rápido
     const stockObj = {};
     stockData.forEach(item => {
@@ -271,15 +305,7 @@ export async function syncStockFromFile(file) {
       success: true,
       stock: stockObj,
       count: stockData.length,
-      timestamp: new Date().toLocaleString('es-PE', {
-        timeZone: 'America/Lima',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      })
+      timestamp
     };
   } catch (error) {
     console.error('Error en syncStockFromFile:', error);

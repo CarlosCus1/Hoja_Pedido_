@@ -104,35 +104,26 @@ export function formatFechaCorta(fecha) {
 }
 
 /**
- * Formats an ISO 8601 timestamp into a relative, human-readable format.
- * If the date is from today, it shows the time.
- * If the date is from yesterday, it shows "yesterday".
- * Otherwise, it shows the date in "dd/mm/yyyy" format.
+ * Formats an ISO 8601 timestamp into a local Peruvian format.
+ * Shows date and time in format: "dd/mm/yyyy, hh:mm:ss a. m./p. m."
  *
  * @param {string} isoTimestamp - The ISO 8601 timestamp to format.
- * @returns {string} The formatted relative time string.
+ * @returns {string} The formatted timestamp in local format.
  */
 export function formatTimestamp(isoTimestamp) {
   if (!isoTimestamp) return 'nunca';
 
   const date = new Date(isoTimestamp);
-  const now = new Date();
-
-  const isToday = date.getDate() === now.getDate() &&
-                  date.getMonth() === now.getMonth() &&
-                  date.getFullYear() === now.getFullYear();
-
-  if (isToday) {
-    return date.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-  }
-
-  const isYesterday = new Date(now.setDate(now.getDate() - 1)).toDateString() === date.toDateString();
-
-  if (isYesterday) {
-    return 'ayer';
-  }
-
-  return date.toLocaleDateString('es-PE');
+  
+  return date.toLocaleString('es-PE', {
+    timeZone: 'America/Lima',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
 }
 
 /**

@@ -1,11 +1,12 @@
 name: Actualizar Stock desde Appweb
 
 on:
-  # Ejecutar automáticamente cada hora
+  # Ejecutar automáticamente cada hora entre 7:00 am y 23:00 (hora Perú)
+  # Hora Perú = UTC-5
+  # 7:00 am Perú = 12:00 UTC | 23:00 Perú = 04:00 UTC (día siguiente)
   schedule:
-    # ejecutar cada hora entre las 07:00 y las 23:00 (UTC)
-    # fuera de ese rango no hay necesidad de sincronizar, se usará el JSON manual
-    - cron: '0 7-23 * * *'
+    - cron: '0 12-23 * * *'   # 12:00 a 23:00 UTC (7:00 am a 6:00 pm Perú)
+    - cron: '0 0-4 * * *'     # 00:00 a 04:00 UTC (7:00 pm a 11:00 pm Perú)
   
   # Permitir ejecución manual desde GitHub
   workflow_dispatch:
