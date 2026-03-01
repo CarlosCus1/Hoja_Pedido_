@@ -260,6 +260,9 @@ function App() {
     setStockError(null);
     
     try {
+      // Limpiar cache de stock en IndexedDB para forzar recarga desde archivo
+      await clearStore('stockAPI');
+      
       const result = await syncStock();
       
       if (result.success) {
