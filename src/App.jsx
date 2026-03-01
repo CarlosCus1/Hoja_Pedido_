@@ -254,30 +254,55 @@ function App() {
   // Toggle tema
   const toggleDarkMode = () => setDarkMode(prev => !prev);
 
-  // Sincronizar stock desde appweb
+  // Sincronizar stock desde appweb y recargar catálogo de productos
   const handleStockSync = async () => {
     setStockLoading(true);
     setStockError(null);
     
     try {
-      // Limpiar cache de stock en IndexedDB para forzar recarga desde archivo
+      // Limpiar cache de stock y productos en IndexedDB para forzar recarga fresca
       await clearStore('stockAPI');
+      await clearStore('productos');
       
+      // Recargar catálogo de productos desde JSON
+      const response = await fetch('./productos_local.json');
+      if (!response.ok) throw new Error('No se pudo cargar el archivo de productos');
+      const data = await response.json();
+      
+      // Normalizar datos del catálogo
+      const normalizedData = data.map(p => ({
+        codigo: p.codigo,
+        nombre: p.descripcion || p.nombre || '',
+        bxSize: Number(p.uni_caja || p.u_por_caja || p.bxSize || p.cantidadPorCaja || 1),
+        precioLista: Number(p.precio || p.precio_lista || p.precioLista || 0),
+        ean: p.ean || '',
+        linea: p.linea || '',
+        stock: Number(p.stock_referencial || p.stock || 0)
+      }));
+      
+      setProductos(normalizedData);
+      
+      // Guardar productos actualizados en IndexedDB
+      for (const producto of normalizedData) {
+        await saveToDB('productos', producto);
+      }
+      
+      // Sincronizar stock
       const result = await syncStock();
       
       if (result.success) {
         setStockData(result.stock);
         setStockLastSync(result.timestamp);
         setStockTimestamp(result.timestamp);
-        alert(`Stock actualizado: ${result.count} productos sincronizados`);
+        alert(`✅ Sincronización completa:\n• ${normalizedData.length} productos recargados\n• ${result.count} stocks actualizados`);
       } else {
         setStockError(result.error);
-        alert(`Error al actualizar stock: ${result.error}\n\nNota: La appweb no permite conexión directa. Use el botón "Cargar Archivo" para importar un Excel.`);
+        alert(`⚠️ Catálogo recargado (${normalizedData.length} productos)\nError en stock: ${result.error}\n\nUse el botón "Cargar Archivo" para importar stock manual.`);
       }
     } catch (err) {
-      console.error('Error sincronizando stock:', err);
+      console.error('Error sincronizando:', err);
       setStockError(err.message);
-      alert(`Error al conectar con el servidor: ${err.message}\n\nUse el botón "Cargar Archivo" para importar un Excel.`);
+      alert(`❌ Error: ${err.message}\n\nVerifique su conexión y que los archivos JSON existan.`);
     } finally {
       setStockLoading(false);
     }
