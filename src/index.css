@@ -2,16 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Variables CSS para tema */
+/* Variables CSS para tema corporativo */
 :root {
+  /* Colores principales corporativos - Azul profundo */
   --bg-app: #f8fafc;
   --bg-card: #ffffff;
   --text-primary: #1e293b;
   --text-secondary: #64748b;
   --border-color: #e2e8f0;
-  --accent-color: #2563eb;
-  --success-color: #22c55e;
-  --danger-color: #ef4444;
+  --accent-color: #4f46e5;
+  --accent-light: #818cf8;
+  --success-color: #059669;
+  --danger-color: #dc2626;
+  
+  /* Fondo corporativo sutil */
+  --bg-corporate: linear-gradient(135deg, #f0f9ff 0%, #f0f7ff 50%, #f5f3ff 100%);
+  --bg-corporate-solid: #f0f7ff;
 }
 
 .dark {
@@ -20,6 +26,10 @@
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --border-color: #334155;
+  --accent-color: #818cf8;
+  --accent-light: #a5b4fc;
+  --success-color: #10b981;
+  --danger-color: #f87171;
 }
 
 /* Estilos base */
@@ -65,6 +75,26 @@ body {
 
 /* Clases de utilidad personalizadas */
 @layer components {
+  /* Fondo corporativo con gradiente sutil */
+  .bg-corporate {
+    background: linear-gradient(135deg, #f0f9ff 0%, #f0f7ff 50%, #f5f3ff 100%);
+  }
+  
+  .dark .bg-corporate {
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+  }
+  
+  /* Header corporativo con identidad */
+  .header-corporate {
+    background: linear-gradient(90deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+    border-bottom: 2px solid #e0e7ff;
+  }
+  
+  .dark .header-corporate {
+    background: linear-gradient(90deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+    border-bottom-color: #312e81;
+  }
+
   .glass-card {
     @apply bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700;
   }

@@ -1,12 +1,50 @@
+/**
+ * ============================================================================
+ * HOJA DE PEDIDO v1.2.1
+ * ============================================================================
+ * Sistema de gestión de pedidos para fuerza de ventas
+ *
+ * Desarrollador: Carlos Cusi
+ * Asistencia de código: Kilo Code - Coding Assistant
+ * Fecha de última actualización: 2026-03-01
+ *
+ * FUNCIONALIDADES PRINCIPALES:
+ *   - Búsqueda de productos por código y nombre
+ *   - Gestión de cantidades en Unidades (Un) o Cajas/Master (Bx)
+ *   - Precios referenciales con indicador (sin IGV, sin descuentos)
+ *   - Sincronización de stock desde archivo Excel/JSON
+ *   - Exportación a Excel para procesamiento de pedidos
+ *   - Catálogo online integrado (FlipHTML5)
+ *   - Interfaz responsive para móvil y escritorio
+ *   - Modo oscuro/claro
+ *   - Orden de ingreso: los productos se ordenan según el orden de ingreso
+ * 
+ * ESTRUCTURA DEL PROYECTO:
+ *   - App.jsx: Componente principal con toda la lógica de la aplicación
+ *   - hooks/useDebounce.js: Hook para debounce de búsqueda
+ *   - services/stockService.js: Servicios para sincronización de stock
+ *   - utils/formatters.js: Utilidades de formateo de datos
+ *   - utils/xlsxGenerator.js: Generador de archivos Excel
+ *   - public/productos_local.json: Catálogo de productos
+ * 
+ * DEPENDENCIAS PRINCIPALES:
+ *   - React 18+ 
+ *   - Tailwind CSS
+ *   - XLSX (para exportación Excel)
+ *   - IndexedDB (para almacenamiento local)
+ * 
+ * ============================================================================
+ */
+
 import { useState, useEffect, useMemo, useCallback, Fragment, useRef } from 'react';
 import { useDebounce } from './hooks/useDebounce';
-import { formatMoney, calcularBx, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, generarOCAutomatica, formatTimestamp } from './utils/formatters';
+import { formatMoney, calcularBx, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, formatTimestamp } from './utils/formatters';
 import { generateExcel } from './utils/xlsxGenerator';
-import { syncStock, loadStockFromIndexedDB, getStock, syncStockFromFile } from './services/stockService';
+import { syncStock, loadStockFromIndexedDB, getStock, syncStockFromFile, parsePedidoFile } from './services/stockService';
 
 // Nombre de la base de datos IndexedDB
 const DB_NAME = 'HojaPedidoDB';
-const DB_VERSION = 4; // Incrementamos para agregar store de stock
+const DB_VERSION = 5; // Incrementamos para forzar recarga de productos
 
 // Variable global para controlar si se necesita recargar
 let needsReloadFromUpgrade = false;
@@ -26,15 +64,15 @@ function initDB() {
       const db = event.target.result;
       const transaction = event.target.transaction;
 
-      // Store para productos
+      // Store para productos - siempre crear o actualizar
       if (!db.objectStoreNames.contains('productos')) {
         db.createObjectStore('productos', { keyPath: 'codigo' });
       } else {
-        // Si el store ya existe, limpiarlo para forzar recarga
+        // El store ya existe - limpiar para forzar recarga con nuevos campos
         const store = transaction.objectStore('productos');
         store.clear();
-        needsReloadFromUpgrade = true;
       }
+      needsReloadFromUpgrade = true;
 
       // Store para selección actual
       if (!db.objectStoreNames.contains('seleccion')) {
@@ -177,8 +215,11 @@ function App() {
   // Estado de selección
   const [selectedProducts, setSelectedProducts] = useState({});
 
-  // Estado de ordenamiento
-  const [sortConfig, setSortConfig] = useState({ key: 'codigo', direction: 'asc' });
+  // Estado de ordenamiento - ahora con soporte para 'ordenIngreso'
+  const [sortConfig, setSortConfig] = useState({ key: 'ordenIngreso', direction: 'asc' });
+  
+  // Contador para el orden de ingreso de productos
+  const [nextOrderIndex, setNextOrderIndex] = useState(1);
 
   // Estado de paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -239,30 +280,55 @@ function App() {
     }
   };
 
-  // Cargar stock desde archivo Excel/JSON
-  const handleStockFileUpload = async (event) => {
+  // Cargar pedido desde archivo Excel previamente exportado
+  const handlePedidoFileUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setStockLoading(true);
-    setStockError(null);
 
     try {
-      const result = await syncStockFromFile(file);
+      // Parsear archivo Excel de pedido
+      const resultado = await parsePedidoFile(file, productos);
       
-      if (result.success) {
-        setStockData(result.stock);
-        setStockLastSync(result.timestamp);
-        setStockTimestamp(result.timestamp);
-        alert(`Stock actualizado: ${result.count} productos cargados desde archivo`);
-      } else {
-        setStockError(result.error);
-        alert(`Error al procesar archivo: ${result.error}`);
+      if (resultado.count === 0) {
+        alert('No se encontraron productos en el archivo');
+        return;
       }
+
+      // Cargar productos en selectedProducts
+      const nuevosProductos = {};
+      resultado.products.forEach(producto => {
+        nuevosProductos[producto.codigo] = {
+          cantidad: producto.cantidad,
+          precioLista: producto.precioLista,
+          bxSize: producto.bxSize || 1,
+          nombre: producto.nombre || '',
+          observacion: producto.observacion || ''
+        };
+      });
+
+      // Actualizar estado
+      setSelectedProducts(nuevosProductos);
+      
+      // Actualizar datos del cliente si existen
+      if (resultado.clientData.ruc || resultado.clientData.oc) {
+        setClientData(prev => ({
+          ...prev,
+          ruc: resultado.clientData.ruc || prev.ruc,
+          oc: resultado.clientData.oc || prev.oc
+        }));
+      }
+
+      const mensaje = resultado.noEncontrados 
+        ? `Pedido cargado: ${resultado.count} productos.\n⚠️ ${resultado.noEncontrados.length} productos no encontrados en catálogo.`
+        : `Pedido cargado: ${resultado.count} productos listos para editar.`;
+      
+      alert(mensaje);
+      
     } catch (err) {
-      console.error('Error cargando archivo:', err);
-      setStockError(err.message);
-      alert(`Error al procesar archivo: ${err.message}`);
+      console.error('Error cargando pedido:', err);
+      alert(`Error al cargar el pedido: ${err.message}`);
     } finally {
       setStockLoading(false);
       // Limpiar el input
@@ -314,25 +380,25 @@ function App() {
         if (cachedProductos && cachedProductos.length > 0 && !needsReloadFromUpgrade) {
           loadedProductos = cachedProductos;
           setProductos(cachedProductos);
-        } else {
-          // Cargar desde JSON local con nombres de productos
-          const response = await fetch('./productos_local.json');
-          if (!response.ok) throw new Error('No se pudo cargar el archivo de productos');
-          const data = await response.json();
-          
-          // Normalizar datos: mapear campos del JSON local a la estructura esperada
-          const normalizedData = data.map(p => ({
-            codigo: p.codigo,
-            nombre: p.nombre || '',
-            bxSize: p.u_por_caja || p.bxSize || p.cantidadPorCaja || 1,
-            precioLista: p.precio || p.precioLista || 0,
-            ean: p.ean || '',
-            linea: p.linea || '',
-            stock: p.stock_referencial || 0
-          }));
-          
-          loadedProductos = normalizedData;
-          setProductos(normalizedData);
+            } else {
+              // Cargar desde JSON local con nombres de productos
+              const response = await fetch('./productos_local.json');
+              if (!response.ok) throw new Error('No se pudo cargar el archivo de productos');
+              const data = await response.json();
+              
+              // Normalizar datos: mapear campos del JSON local a la estructura esperada
+              const normalizedData = data.map(p => ({
+                codigo: p.codigo,
+                nombre: p.descripcion || p.nombre || '',
+                bxSize: Number(p.uni_caja || p.u_por_caja || p.bxSize || p.cantidadPorCaja || 1),
+                precioLista: Number(p.precio || p.precio_lista || p.precioLista || 0),
+                ean: p.ean || '',
+                linea: p.linea || '',
+                stock: Number(p.stock_referencial || p.stock || 0)
+              }));
+              
+              loadedProductos = normalizedData;
+              setProductos(normalizedData);
 
           // Guardar en IndexedDB
           for (const producto of normalizedData) {
@@ -466,7 +532,7 @@ function App() {
     setCurrentPage(1);
   }, [debouncedSearch, pageSize]);
 
-  // Productos seleccionados como array (ordenados por código ascendente)
+  // Productos seleccionados como array (ordenados según sortConfig)
   const selectedProductsArray = useMemo(() => {
     const products = Object.entries(selectedProducts).map(([codigo, data]) => ({
       codigo,
@@ -475,9 +541,10 @@ function App() {
       bxSize: data.bxSize,
       cajas: calcularBx(data.cantidad, data.bxSize),
       observacion: data.observacion || '',
-      stock: stockData[codigo] || 0
+      stock: stockData[codigo] || 0,
+      ordenIngreso: data.ordenIngreso || 0
     }));
-    // Ordenar según sortConfig (soporta stock también)
+    // Ordenar según sortConfig (soporta ordenIngreso, código, nombre, etc.)
     return products.sort((a, b) => {
       const key = sortConfig.key;
       let aValue = a[key];
@@ -520,26 +587,51 @@ function App() {
       return;
     }
     
+    const currentOrder = nextOrderIndex;
     setSelectedProducts(prev => {
       const newSelection = { ...prev };
       newSelection[producto.codigo] = {
         cantidad: cantidad,
         precioLista: producto.precioLista,
         bxSize: producto.bxSize,
-        nombre: producto.nombre || ''
+        nombre: producto.nombre || '',
+        ordenIngreso: currentOrder
       };
       return newSelection;
     });
+    setNextOrderIndex(prev => prev + 1);
     // Limpiar input de búsqueda y cantidades
     setSearch('');
     setSearchQuantities({});
   };
 
-  // Helper para obtener etiqueta de equivalencia (ej. "1 Master = 72 und")
+  // Helper para obtener etiqueta de equivalencia (ej. "1 Bx = 72 unidades")
   const getMasterLabel = (codigo) => {
     const prod = productos.find(p => p.codigo === codigo);
     const perMaster = prod?.bxSize || 1;
-    return perMaster === 1 ? null : `1 BX = ${perMaster.toLocaleString()} un`;
+    return perMaster === 1 ? null : `1 Bx = ${perMaster.toLocaleString()} unidades`;
+  };
+
+  // Helper para obtener equivalencia dinámica en tiempo real
+  const getEquivalenceLabel = (codigo, displayValue, rawValue) => {
+    if (!displayValue || displayValue === '' || displayValue === null) return null;
+    const prod = productos.find(p => p.codigo === codigo);
+    const perBox = prod?.bxSize || 1;
+    if (perBox === 1) return null;
+    
+    // rawValue es la cantidad REAL en unidades (siempre)
+    const unidadesReales = parseInt(String(rawValue).replace(/\D/g, ''), 10) || 0;
+    if (isNaN(unidadesReales) || unidadesReales <= 0) return null;
+
+    // Mostrar equivalencia basada en el modo de entrada
+    if (inputMode === 'bx') {
+      // Usuario ingresó en Bx (cajas/bultos), mostrar resultado en unidades
+      return `= ${unidadesReales.toLocaleString()} un`;
+    } else {
+      // Usuario ingresó en unidades, mostrar equivalencia en Bx
+      const totalCajas = unidadesReales / perBox;
+      return `= ${totalCajas.toFixed(2)} Bx`;
+    }
   };
 
   // Helper para mostrar cantidad en el input según el modo de entrada actual
@@ -551,6 +643,17 @@ function App() {
       return Math.round((unidades / perBox) * 100) / 100; // Mostrar en cajas
     }
     return unidades; // Modo unidades: mostrar directamente
+  };
+
+  // Helper para mostrar precio según el modo de entrada actual
+  const getDisplayPrice = (codigo, precioUnitario) => {
+    if (inputMode === 'bx') {
+      const prod = productos.find(p => p.codigo === codigo);
+      const perBox = prod?.bxSize || 1;
+      if (perBox === 1) return precioUnitario; // Si no hay cajas definidas, mostrar precio unitario
+      return precioUnitario * perBox; // Mostrar precio por caja/empaque
+    }
+    return precioUnitario; // Modo unidades: mostrar precio unitario
   };
 
   // Parsear entradas de cantidad: soporta números y expresiones de cajas (ej. "10xBx")
@@ -643,22 +746,28 @@ function App() {
     const productsToAdd = Object.keys(selectedForAdd);
     if (productsToAdd.length === 0) return;
 
-    // Agregar cada producto seleccionado
+    // Calcular el orden inicial
+    let currentOrder = nextOrderIndex;
+
+    // Agregar cada producto seleccionado con número de orden
+    const newProducts = { ...selectedProducts };
     productsToAdd.forEach(codigo => {
       const producto = productos.find(p => p.codigo === codigo);
-      if (producto && !selectedProducts[producto.codigo]) {
+      if (producto && !newProducts[producto.codigo]) {
         const cantidad = searchQuantities[codigo] || 1;
-        setSelectedProducts(prev => ({
-          ...prev,
-          [producto.codigo]: {
-            cantidad: cantidad,
-            precioLista: producto.precioLista,
-            bxSize: producto.bxSize,
-            nombre: producto.nombre || ''
-          }
-        }));
+        newProducts[producto.codigo] = {
+          cantidad: cantidad,
+          precioLista: producto.precioLista,
+          bxSize: producto.bxSize,
+          nombre: producto.nombre || '',
+          ordenIngreso: currentOrder
+        };
+        currentOrder++;
       }
     });
+
+    setSelectedProducts(newProducts);
+    setNextOrderIndex(currentOrder);
 
     // Limpiar selección y cantidades
     setSelectedForAdd({});
@@ -686,16 +795,19 @@ function App() {
       }
       
       // Si el producto existe en el catálogo y no está seleccionado
+      const currentOrder = nextOrderIndex;
       setSelectedProducts(prev => {
         const newSelection = { ...prev };
         newSelection[producto.codigo] = {
           cantidad: 1,
           precioLista: producto.precioLista,
           bxSize: producto.bxSize,
-          nombre: producto.nombre || ''
+          nombre: producto.nombre || '',
+          ordenIngreso: currentOrder
         };
         return newSelection;
       });
+      setNextOrderIndex(prev => prev + 1);
       setSearch('');
       setCodeNotFound(false);
     } else {
@@ -715,6 +827,7 @@ function App() {
       return;
     }
 
+    const currentOrder = nextOrderIndex;
     setSelectedProducts(prev => {
       const newSelection = { ...prev };
       newSelection[code] = {
@@ -722,10 +835,12 @@ function App() {
         precioLista: customData.precioLista || 0,
         bxSize: customData.bxSize || 1,
         nombre: customData.nombre || `Producto ${code}`,
-        esPersonalizado: true
+        esPersonalizado: true,
+        ordenIngreso: currentOrder
       };
       return newSelection;
     });
+    setNextOrderIndex(prev => prev + 1);
     setSearch('');
     setCodeNotFound(false);
     setShowCustomProductForm(false);
@@ -783,6 +898,8 @@ function App() {
 
   const confirmClear = async () => {
     setSelectedProducts({});
+    // Resetear el contador de orden de ingreso
+    setNextOrderIndex(1);
     // También limpiar los datos del cliente
     setClientData({
       ruc: '',
@@ -798,6 +915,23 @@ function App() {
 
   const cancelClear = () => {
     setShowClearConfirm(false);
+  };
+
+  // Cancelar eliminación de cantidad vacía
+  const cancelQuantityDelete = () => {
+    setShowQuantityConfirm(false);
+    setPendingQuantityCodigo(null);
+  };
+
+  // Confirmar eliminación por cantidad vacía
+  const confirmQuantityDelete = () => {
+    if (pendingQuantityCodigo) {
+      const newSelection = { ...selectedProducts };
+      delete newSelection[pendingQuantityCodigo];
+      setSelectedProducts(newSelection);
+    }
+    setShowQuantityConfirm(false);
+    setPendingQuantityCodigo(null);
   };
 
   // Exportar a Excel (mínimo: RUC + 1 producto)
@@ -849,7 +983,7 @@ function App() {
   // Renderizar estado de error
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-corporate">
         <div className="text-center glass-card p-8 max-w-md">
           <svg className="w-16 h-16 text-danger-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -865,113 +999,92 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-slate-800 shadow-sm border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+    <div className="min-h-screen bg-corporate">
+      {/* Header Perfil - Optimizado para móvil con título izquierda y botones derecha */}
+      <header className="header-corporate sticky top-0 z-30 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          {/* Layout flexible: en desktop y móvil - título izquierda, botones derecha */}
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                📋 Hoja de Pedido
+            {/* Título principal - siempre alineado a la izquierda */}
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">📋</span>
+              <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                Hoja de Pedido
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Sistema de gestión de pedidos
-              </p>
             </div>
-            <div className="flex items-center gap-3">
+            
+            {/* Botones de acción - alineados a la derecha */}
+            <div className="flex items-center gap-2 sm:gap-3">
               {/* Fecha actual */}
-              <span className="text-sm text-slate-500 dark:text-slate-400 hidden sm:inline">
+              <span className="hidden sm:inline text-sm text-slate-500 dark:text-slate-400">
                 {getFechaCorta()}
               </span>
-              {/* Toggle de tema */}
+
+              {/* Botón para cambiar tema */}
               <button
                 onClick={toggleDarkMode}
                 className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                 title={darkMode ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
               >
                 {darkMode ? (
-                  <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
-                  </svg>
+                  <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>
                 ) : (
-                  <svg className="w-5 h-5 text-slate-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                  </svg>
+                  <svg className="w-5 h-5 text-slate-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" /></svg>
                 )}
               </button>
-              <span className="text-sm text-slate-500 dark:text-slate-400 hidden sm:inline">
+              
+              {/* Contador de productos - solo escritorio */}
+              <span className="hidden md:inline text-sm text-slate-500 dark:text-slate-400">
                 {productos.length} productos
               </span>
-              {/* Modo de entrada: Un / Bx */}
-              <div className="inline-flex items-center border rounded-lg overflow-hidden ml-2">
-                <button
-                  onClick={() => setInputMode('un')}
-                  className={`px-2 py-1 text-sm ${inputMode === 'un' ? 'bg-white dark:bg-slate-800 text-primary-600' : 'text-slate-600 dark:text-slate-400'}`}
-                  title="Ingresar en unidades"
-                >
-                  Un
-                </button>
-                <button
-                  onClick={() => setInputMode('bx')}
-                  className={`px-2 py-1 text-sm ${inputMode === 'bx' ? 'bg-white dark:bg-slate-800 text-primary-600' : 'text-slate-600 dark:text-slate-400'}`}
-                  title="Ingresar en cajas (convertirá a unidades)"
-                >
-                  Bx
-                </button>
-              </div>
-              {/* Botón actualizar stock */}
-              <button
-                onClick={handleStockSync}
-                disabled={stockLoading}
-                className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
-                title={stockLastSync ? 'Última actualización: ' + new Date(stockLastSync).toLocaleString() : 'Sincronizar stock desde appweb'}
-              >
-                {stockLoading ? (
-                  <>
+
+              {/* Botones de acción principales */}
+              <div className="flex items-center gap-1 sm:gap-2">
+                {/* Catálogo */}
+                <a href="https://fliphtml5.com/bookcase/ilmjw/" target="_blank" rel="noopener noreferrer" 
+                   className="btn-secondary text-xs p-2" 
+                   title="Ver catálogos">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </a>
+                {/* Sincronizar stock */}
+                <button onClick={handleStockSync} disabled={stockLoading} 
+                        className="btn-secondary text-xs p-2" 
+                        title={stockLastSync ? 'Última sync: ' + new Date(stockLastSync).toLocaleString() : 'Sincronizar stock'}>
+                  {stockLoading ? 
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Cargando...
-                  </>
-                ) : (
-                  <>
+                    </svg> : 
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    Stock
-                  </>
-                )}
-              </button>
-              {/* Botón cargar archivo */}
-              <button
-                onClick={triggerStockFileUpload}
-                disabled={stockLoading}
-                className="px-3 py-1.5 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
-                title="Cargar archivo Excel o JSON con stock"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                Cargar
-              </button>
-              {/* Input file oculto */}
-              <input
-                ref={stockFileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.json"
-                onChange={handleStockFileUpload}
-                className="hidden"
-              />
+                  }
+                </button>
+                {/* Cargar pedido anterior */}
+                <button onClick={triggerStockFileUpload} disabled={stockLoading} 
+                        className="btn-secondary text-xs p-2" 
+                        title="Cargar pedido anterior (Excel)">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </button>
+                <input ref={stockFileInputRef} type="file" accept=".xlsx,.xls" onChange={handlePedidoFileUpload} className="hidden"/>
+              </div>
             </div>
-            {stockTimestamp && (
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Última actualización: {formatTimestamp(stockTimestamp)}
-          </p>
-        )}
           </div>
         </div>
       </header>
+      
+      {/* Barra de información de stock - Estilo corporativo */}
+      <section className="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-slate-800 dark:to-indigo-950 border-b border-indigo-100 dark:border-slate-700">
+        <div className="max-w-7xl mx-auto px-4 py-1.5">
+          <div className="flex items-center justify-end text-[10px] text-slate-500 dark:text-slate-400">
+            <span>Stock: {stockTimestamp ? formatTimestamp(stockTimestamp) : 'No sincronizado'}</span>
+          </div>
+        </div>
+      </section>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Datos del Cliente */}
@@ -1005,9 +1118,10 @@ function App() {
             </h2>
           </div>
 
-          {/* Contenido colapsable */}
+          {/* Contenido colapsable de datos del cliente */}
+          {/* La rejilla se ajusta para ser más compacta en pantallas grandes */}
           <div className={`${clientSectionExpanded ? 'block' : 'hidden'} sm:block px-6 pb-6`}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
                 RUC/DNI {!validarDocumento(clientData.ruc) && clientData.ruc && (
@@ -1125,6 +1239,30 @@ function App() {
                   }}
                   onKeyDown={handleManualCodeKeyDown}
                 />
+                {/* Switch deslizable tipo iOS - sin etiquetas laterales redundantes */}
+                <button
+                  onClick={() => setInputMode(inputMode === 'un' ? 'bx' : 'un')}
+                  className={`relative w-28 sm:w-32 h-8 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 ${
+                    inputMode === 'bx' ? 'bg-primary-500' : 'bg-slate-400 dark:bg-slate-600'
+                  }`}
+                  title={inputMode === 'un' ? 'Modo Bx: cada unidad representa un bulto/caja/saco' : 'Modo Unidades: ingreso por unidades individuales'}
+                >
+                  {/* Track labels */}
+                  <span className={`absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold transition-colors ${inputMode === 'un' ? 'text-white' : 'text-white/50'}`}>
+                    Unidades
+                  </span>
+                  <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold transition-colors ${inputMode === 'bx' ? 'text-white' : 'text-white/50'}`}>
+                    Bx
+                  </span>
+                  {/* Thumb deslizante */}
+                  <span
+                    className={`absolute top-0.5 bg-white h-7 rounded-full shadow-md transition-all duration-300 flex items-center justify-center text-[10px] font-bold text-slate-700 w-14 ${
+                      inputMode === 'bx' ? 'left-[calc(100%-3.6rem)]' : 'left-0.5'
+                    }`}
+                  >
+                    {inputMode === 'bx' ? 'Bx' : 'Unidades'}
+                  </span>
+                </button>
                 <button
                   onClick={() => {
                     // Si hay un solo producto en resultados y no está seleccionado, agregarlo con su cantidad
@@ -1189,7 +1327,7 @@ function App() {
                       </th>
                       <th className="px-2 py-2 text-left font-medium">Código</th>
                       <th className="px-2 py-2 text-left font-medium">Nombre</th>
-                      <th className="px-2 py-2 text-center font-medium">U/Caja</th>
+                      <th className="px-2 py-2 text-center font-medium">U/Bx</th>
                       <th className="px-2 py-2 text-center font-medium">Stock</th>
                       <th className="px-2 py-2 text-right font-medium">Precio</th>
                       <th className="px-2 py-2 text-center font-medium w-20">Cant.</th>
@@ -1226,8 +1364,10 @@ function App() {
                           <td className="px-2 py-2 text-slate-600 dark:text-slate-300 max-w-[10rem]">
                             <p className="line-clamp-2 text-sm">{producto.nombre || '-'}</p>
                           </td>
-                          <td className="px-2 py-2 text-center text-slate-600 dark:text-slate-300 text-sm">
-                            {producto.cantidadPorCaja}
+                          <td className="px-2 py-2 text-center">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300" title={`${producto.bxSize} unidades por Bx (box/bulto)`}>
+                              {producto.bxSize} U/Bx
+                            </span>
                           </td>
                           <td className="px-2 py-2 text-center">
                             {stockData[producto.codigo] > 0 ? (
@@ -1238,8 +1378,15 @@ function App() {
                               <span className="text-red-500" title="Sin stock">0</span>
                             )}
                           </td>
-                          <td className="px-2 py-2 text-right font-mono text-slate-800 dark:text-slate-100 text-sm">
-                            {formatMoney(producto.precioLista)}
+                          <td className="px-2 py-2 text-right">
+                            <div className="flex flex-col items-end" title="Precio de lista referencial (sin IGV, sin descuentos)">
+                              <span className="font-mono text-slate-800 dark:text-slate-100 text-sm">
+                                {formatMoney(getDisplayPrice(producto.codigo, producto.precioLista))}
+                              </span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                                {inputMode === 'bx' ? 'por Bx (ref.)' : 'por unidad (ref.)'}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-2 py-2 text-center">
                             <div className="flex flex-col items-center gap-1">
@@ -1253,8 +1400,11 @@ function App() {
                                 onChange={(e) => handleSearchQuantityChange(producto.codigo, e.target.value)}
                                 onFocus={(e) => e.target.select()}
                               />
-                              {getMasterLabel(producto.codigo) && (
-                                <span className="text-xs text-slate-400 dark:text-slate-500">{getMasterLabel(producto.codigo)}</span>
+                              {/* Equivalencia dinámica en tiempo real */}
+                              {getEquivalenceLabel(producto.codigo, String(getDisplayQuantity(producto.codigo, qty)), qty) && (
+                                <span className="text-xs text-primary-600 dark:text-primary-400 font-medium whitespace-nowrap">
+                                  {getEquivalenceLabel(producto.codigo, String(getDisplayQuantity(producto.codigo, qty)), qty)}
+                                </span>
                               )}
                             </div>
                           </td>
@@ -1323,11 +1473,14 @@ function App() {
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <span className="text-xs text-slate-500 dark:text-slate-400">
-                            {producto.bxSize} BX
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300" title={`${producto.bxSize} unidades por Bx (box/bulto)`}>
+                            {producto.bxSize} U/Bx
                           </span>
-                          <p className="text-xs font-mono text-slate-700 dark:text-slate-200">
-                            {formatMoney(producto.precioLista)}
+                          <p className="text-xs font-mono text-slate-700 dark:text-slate-200 mt-1" title="Precio de lista referencial (sin IGV, sin descuentos)">
+                            {formatMoney(getDisplayPrice(producto.codigo, producto.precioLista))}
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-1">
+                              {inputMode === 'bx' ? '/Bx (ref.)' : '/unidad (ref.)'}
+                            </span>
                           </p>
                           <p className="text-xs mt-1">
                             {stockData[producto.codigo] > 0 ? (
@@ -1363,9 +1516,12 @@ function App() {
                             <span className="px-3 py-1.5 text-sm text-slate-500 dark:text-slate-400">Marcar</span>
                           )}
                         </div>
-                        {getMasterLabel(producto.codigo) && (
-                          <span className="text-xs text-slate-400 dark:text-slate-500 ml-auto">{getMasterLabel(producto.codigo)}</span>
-                        )}
+                          {/* Equivalencia dinámica en tiempo real - Móvil */}
+                          {getEquivalenceLabel(producto.codigo, String(getDisplayQuantity(producto.codigo, qty)), qty) ? (
+                            <span className="text-xs text-primary-600 dark:text-primary-400 font-medium ml-auto">
+                              {getEquivalenceLabel(producto.codigo, String(getDisplayQuantity(producto.codigo, qty)), qty)}
+                            </span>
+                          ) : null}
                       </div>
                     </div>
                   );
@@ -1387,25 +1543,25 @@ function App() {
               </div>
             </>
           )}
-          
-          {!search.trim() && (
-            <div className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
-              Escriba un código o nombre para buscar productos
-            </div>
-          )}
         </section>
 
         {/* Productos Seleccionados */}
         <section className="glass-card mb-6 animate-fadeIn">
           <div className="p-6 border-b border-slate-200 dark:border-slate-700">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <svg className="w-5 h-5 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                  <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-                </svg>
-                Productos Seleccionados
-              </h2>
+              <div>
+                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                  </svg>
+                  Productos Seleccionados
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Ordenado por: {sortConfig.key === 'ordenIngreso' ? 'Orden de ingreso' : sortConfig.key === 'codigo' ? 'Código' : sortConfig.key === 'nombre' ? 'Nombre' : sortConfig.key}
+                  <span className="ml-1 text-slate-400 dark:text-slate-500 cursor-help" title="Haga clic en los encabezados de la tabla para cambiar el ordenamiento">(ℹ️)</span>
+                </p>
+              </div>
               <span className="px-3 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-full text-sm font-medium">
                 {totalSelected} productos
               </span>
@@ -1458,7 +1614,21 @@ function App() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                 <tr>
-                  <th 
+                  <th
+                    className="px-2 py-3 text-center font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 w-14"
+                    onClick={() => handleSort('ordenIngreso')}
+                    title="Orden de ingreso"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      #
+                      {sortConfig.key === 'ordenIngreso' && (
+                        <span className="text-primary-600">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                  <th
                     className="px-4 py-3 text-left font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
                     onClick={() => handleSort('codigo')}
                   >
@@ -1518,7 +1688,7 @@ function App() {
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {selectedProductsArray.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                    <td colSpan={8} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                       No hay productos seleccionados. Use el buscador o ingrese un código para agregar productos.
                     </td>
                   </tr>
@@ -1534,37 +1704,49 @@ function App() {
                         <tr
                           className="bg-white dark:bg-slate-800 table-row-hover"
                         >
+                          <td className="px-2 py-3 text-center">
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium">
+                              {producto.ordenIngreso}
+                            </span>
+                          </td>
                           <td className="px-4 py-3 font-mono font-medium text-slate-800 dark:text-slate-100">
                             {producto.codigo}
                           </td>
                           <td className="px-4 py-3 text-slate-600 dark:text-slate-300 max-w-[12rem]">
                             <p className="line-clamp-2">{nombre}</p>
                           </td>
-                          <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
-                            {producto.bxSize}
+                          <td className="px-4 py-3 text-center">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300" title={`${producto.bxSize} unidades por Bx (box/bulto)`}>
+                              {producto.bxSize} U/Bx
+                            </span>
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-slate-800 dark:text-slate-100">
-                            {formatMoney(producto.precioLista)}
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex flex-col items-end" title="Precio de lista referencial (sin IGV, sin descuentos)">
+                              <span className="font-mono text-slate-800 dark:text-slate-100">
+                                {formatMoney(getDisplayPrice(producto.codigo, producto.precioLista))}
+                              </span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                                {inputMode === 'bx' ? 'por Bx (ref.)' : 'por unidad (ref.)'}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex flex-col items-center gap-2">
-                              <div className="flex flex-col items-center gap-0.5">
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  placeholder={inputMode === 'bx' ? "e.g. 10 o 10xBx" : "e.g. 100 o 10xBx"}
-                                  className="w-16 text-center border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm font-semibold dark:bg-slate-700 dark:text-slate-100"
-                                  value={getDisplayQuantity(producto.codigo, producto.cantidad)}
-                                  onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
-                                  onFocus={(e) => e.target.select()}
-                                />
-                                {getMasterLabel(producto.codigo) && (
-                                  <span className="text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">{getMasterLabel(producto.codigo)}</span>
-                                )}
-                              </div>
-                              <span className="text-xs font-mono text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 px-2 py-1 rounded">
-                                {producto.cajas.toFixed(2) === '0.00' ? '0' : producto.cajas.toFixed(2)} bx / {producto.cantidad} un
-                              </span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder={inputMode === 'bx' ? "e.g. 10 o 10xBx" : "e.g. 100 o 10xBx"}
+                                className="w-16 text-center border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm font-semibold dark:bg-slate-700 dark:text-slate-100"
+                                value={getDisplayQuantity(producto.codigo, producto.cantidad)}
+                                onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
+                                onFocus={(e) => e.target.select()}
+                              />
+                              {/* Solo equivalencia dinámica */}
+                              {getEquivalenceLabel(producto.codigo, String(getDisplayQuantity(producto.codigo, producto.cantidad)), producto.cantidad) && (
+                                <span className="text-xs text-primary-600 dark:text-primary-400 font-medium whitespace-nowrap">
+                                  {getEquivalenceLabel(producto.codigo, String(getDisplayQuantity(producto.codigo, producto.cantidad)), producto.cantidad)}
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="px-2 py-3 text-center">
@@ -1601,7 +1783,7 @@ function App() {
                         {/* Fila expandible para observación */}
                         {isExpanded && (
                           <tr key={`${producto.codigo}-obs`} className="bg-slate-50 dark:bg-slate-800/50">
-                            <td colSpan={6} className="px-4 py-2">
+                            <td colSpan={7} className="px-4 py-2">
                               <div className="flex items-start gap-2">
                                 <span className="text-xs text-slate-500 dark:text-slate-400 mt-2">Obs:</span>
                                 <textarea
@@ -1632,14 +1814,14 @@ function App() {
             </table>
           </div>
 
-          {/* Vista de Cards para Móvil - Rediseñada con 3 bloques */}
+          {/* Vista de Cards para Móvil - Optimizada para ser más compacta */}
           <div className="sm:hidden">
             {selectedProductsArray.length === 0 ? (
               <div className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
-                No hay productos seleccionados. Use el buscador o ingrese un código para agregar productos.
+                No hay productos seleccionados.
               </div>
             ) : (
-              <div className="p-3 space-y-3">
+              <div className="p-2 space-y-2">
                 {selectedProductsArray.map((producto) => {
                   const productoData = productos.find(p => p.codigo === producto.codigo);
                   const nombre = productoData?.nombre || selectedProducts[producto.codigo]?.nombre || '-';
@@ -1647,117 +1829,70 @@ function App() {
                   const isExpanded = expandedObservations[producto.codigo];
                   
                   return (
-                    <div
-                      key={producto.codigo}
-                      className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden"
-                    >
-                      {/* BLOQUE 1: IDENTIFICACIÓN */}
-                      <div className="p-4 border-b border-slate-100 dark:border-slate-700">
-                        <div className="flex justify-between items-start gap-2">
+                    <div key={producto.codigo} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                      <div className="p-3">
+                        <div className="flex justify-between items-start gap-3">
+                          {/* Información del producto */}
                           <div className="flex-1 min-w-0">
-                            <p className="font-mono text-lg font-bold text-primary-600 dark:text-primary-400">
-                              {producto.codigo}
-                            </p>
-                            <p className="text-sm text-slate-700 dark:text-slate-300 mt-1 line-clamp-2 leading-snug" title={nombre}>
-                              {nombre}
-                            </p>
-                            <p className="text-xs mt-2">
-                              Stock: {stockData[producto.codigo] ?? 0}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium">
+                                {producto.ordenIngreso}
+                              </span>
+                              <p className="font-mono font-bold text-primary-600 dark:text-primary-400">{producto.codigo}</p>
+                            </div>
+                            <p className="text-sm text-slate-700 dark:text-slate-300 mt-0.5 line-clamp-2" title={nombre}>{nombre}</p>
+                            <div className="flex items-center gap-3 mt-2 text-xs text-slate-500 dark:text-slate-400">
+                               <span>Stock: <span className="font-semibold">{stockData[producto.codigo] ?? 0}</span></span>
+                               <span>U/Bx: <span className="font-semibold">{producto.bxSize}</span></span>
+                            </div>
                           </div>
-                          <button
-                            onClick={() => {
-                              const newSelection = { ...selectedProducts };
-                              delete newSelection[producto.codigo];
-                              setSelectedProducts(newSelection);
-                            }}
-                            className="p-2 text-slate-400 hover:text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded-lg transition-colors"
-                            title="Eliminar producto"
-                          >
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* BLOQUE 2: DETALLES */}
-                      <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Unidades/Bx</p>
-                          <p className="font-semibold text-slate-800 dark:text-slate-100">{producto.bxSize}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Precio de lista <span className="normal-case font-normal">(solo referencia)</span></p>
-                          <p className="font-semibold text-slate-800 dark:text-slate-100">{formatMoney(producto.precioLista)}</p>
-                        </div>
-                      </div>
-
-                      {/* BLOQUE 3: INTERACCIÓN */}
-                      <div className="p-4 space-y-3">
-                        {/* Input de cantidad directo sin botones +/- */}
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center gap-3">
-                            <label className="text-sm font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                              Cantidad:
-                            </label>
+                          {/* Input de cantidad */}
+                          <div className="flex flex-col items-end gap-1">
                             <input
                               type="text"
                               inputMode="numeric"
-                              placeholder={inputMode === 'bx' ? "e.g. 10 o 10xBx" : "e.g. 100 o 10xBx"}
-                              className="flex-1 text-center text-xl font-semibold border-2 border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 dark:bg-slate-700 dark:text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                              className="w-20 text-center text-lg font-bold border-b-2 border-slate-300 dark:border-slate-600 rounded-md px-2 py-1 dark:bg-slate-700 dark:text-slate-100 focus:border-primary-500 focus:ring-0 transition"
                               value={getDisplayQuantity(producto.codigo, producto.cantidad)}
                               onChange={(e) => updateQuantity(producto.codigo, e.target.value)}
                               onFocus={(e) => e.target.select()}
                             />
-                          </div>
-                          <div className="flex items-center justify-between text-xs">
-                            {getMasterLabel(producto.codigo) && (
-                              <span className="text-slate-400 dark:text-slate-500">{getMasterLabel(producto.codigo)}</span>
-                            )}
-                            <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                              {producto.cajas.toFixed(2)} bx
+                            <span className="text-xs text-primary-600 dark:text-primary-400 h-4">
+                              {getEquivalenceLabel(producto.codigo, String(getDisplayQuantity(producto.codigo, producto.cantidad)), producto.cantidad)}
                             </span>
                           </div>
                         </div>
-
-                        {/* Observaciones colapsable */}
-                        <div className="border-t border-slate-100 dark:border-slate-700 pt-3">
-                          <button
-                            onClick={() => toggleObservation(producto.codigo)}
-                            className={`flex items-center gap-2 text-sm transition-colors w-full ${
-                              observacion 
-                                ? 'text-primary-600 font-medium' 
-                                : 'text-slate-500 dark:text-slate-400 hover:text-primary-600'
-                            }`}
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                            </svg>
-                            {observacion ? 'Editar observación' : 'Agregar observación'}
-                            {observacion && (
-                              <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-xs px-2 py-0.5 rounded-full">
-                                1
-                              </span>
-                            )}
-                            <svg className={`w-4 h-4 ml-auto transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </button>
-                          
-                          {isExpanded && (
-                            <div className="mt-2 animate-fadeIn">
-                              <textarea
-                                className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 resize-none dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                rows={2}
-                                placeholder="Escriba una observación para este producto..."
-                                value={observacion}
-                                onChange={(e) => updateObservation(producto.codigo, e.target.value)}
-                              />
-                            </div>
-                          )}
-                        </div>
                       </div>
+                      {/* Acciones y Observaciones */}
+                      <div className="border-t border-slate-100 dark:border-slate-700 px-3 py-2 flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => toggleObservation(producto.codigo)}
+                          className={`flex-1 text-left text-xs transition-colors ${observacion ? 'text-primary-600 font-semibold' : 'text-slate-500 dark:text-slate-400 hover:text-primary-600'}`}
+                        >
+                          {observacion ? 'Ver/Editar Nota' : 'Agregar Nota'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            const newSelection = { ...selectedProducts };
+                            delete newSelection[producto.codigo];
+                            setSelectedProducts(newSelection);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-danger-500 rounded-md"
+                          title="Eliminar producto"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                        </button>
+                      </div>
+                      {isExpanded && (
+                        <div className="border-t border-slate-100 dark:border-slate-700 p-3">
+                          <textarea
+                            className="w-full text-sm border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 dark:bg-slate-700 dark:text-slate-100"
+                            rows={2}
+                            placeholder="Observación..."
+                            value={observacion}
+                            onChange={(e) => updateObservation(producto.codigo, e.target.value)}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1800,8 +1935,8 @@ function App() {
         </section>
        </main>
 
-      {/* Barra de acciones fija para móvil */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 p-4 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+      {/* Barra de acciones fija para móvil - Estilo corporativo */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 border-t border-indigo-100 dark:border-slate-700 p-4 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
         <div className="flex gap-3">
           <button
             onClick={handleClearSelection}
@@ -2057,10 +2192,18 @@ function App() {
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 py-4 mt-8">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm text-slate-500 dark:text-slate-400">
-          Hoja de Pedido v1.1 - Sistema de gestión de pedidos
+      {/* Footer corporativo */}
+      <footer className="bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 border-t border-indigo-100/50 dark:border-slate-700 py-4 mt-8">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs">
+            <span className="text-slate-500 dark:text-slate-400">
+              📋 Hoja de Pedido <span className="text-primary-600 dark:text-primary-400 font-mono">v1.2.1</span>
+            </span>
+            <span className="hidden sm:inline text-slate-300 dark:text-slate-600">•</span>
+            <span className="text-slate-400 dark:text-slate-500">
+              by Carlos Cusi
+            </span>
+          </div>
         </div>
       </footer>
     </div>

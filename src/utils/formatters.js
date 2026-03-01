@@ -15,17 +15,6 @@ export function formatMoney(amount) {
 }
 
 /**
- * Formatea un número con separador de miles
- * @param {number} number - Número a formatear
- * @returns {string} - Número formateado
- */
-export function formatNumber(number) {
-  if (number === null || number === undefined || isNaN(number)) return '0';
-  
-  return new Intl.NumberFormat('es-PE').format(number);
-}
-
-/**
  * Calcula el número de cajas (bx) basado en unidades y cantidad por caja
  * @param {number} unidades - Cantidad de unidades
  * @param {number} bxSize - Cantidad de unidades por caja (bx)
@@ -34,21 +23,6 @@ export function formatNumber(number) {
 export function calcularBx(unidades, bxSize) {
   if (!unidades || !bxSize || bxSize === 0) return 0;
   return Math.round((unidades / bxSize) * 100) / 100;
-}
-
-/**
- * Formatea una fecha en formato ddmmyyyy a formato legible
- * @param {string} fecha - Fecha en formato ddmmyyyy
- * @returns {string} - Fecha formateada (dd/mm/yyyy)
- */
-export function formatFecha(fecha) {
-  if (!fecha || fecha.length !== 8) return fecha;
-  
-  const dia = fecha.substring(0, 2);
-  const mes = fecha.substring(2, 4);
-  const anio = fecha.substring(4, 8);
-  
-  return `${dia}/${mes}/${anio}`;
 }
 
 /**
@@ -127,17 +101,6 @@ export function formatFechaCorta(fecha) {
   const anio = fecha.substring(6, 8);
   
   return `${dia}/${mes}/${anio}`;
-}
-
-/**
- * Genera un código de OC automático con patrón OC-{AÑO}-{SECUENCIAL}
- * @param {number} secuencial - Número secuencial (opcional, default: aleatorio)
- * @returns {string} - Código OC generado
- */
-export function generarOCAutomatica(secuencial = null) {
-  const anio = new Date().getFullYear();
-  const seq = secuencial ?? Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  return `OC-${anio}-${seq}`;
 }
 
 /**

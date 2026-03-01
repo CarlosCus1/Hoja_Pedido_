@@ -8,18 +8,20 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Paleta corporativa profesional - Azul índigo
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          50: '#eef2ff',
+          100: '#e0e7ff',
+          200: '#c7d2fe',
+          300: '#a5b4fc',
+          400: '#818cf8',
+          500: '#6366f1',
+          600: '#4f46e5',
+          700: '#4338ca',
+          800: '#3730a3',
+          900: '#312e81',
         },
+        // Verde corporativo para éxito/completado
         success: {
           50: '#f0fdf4',
           100: '#dcfce7',
@@ -32,6 +34,7 @@ export default {
           800: '#166534',
           900: '#14532d',
         },
+        // Rojo para errores/danger
         danger: {
           50: '#fef2f2',
           100: '#fee2e2',
@@ -43,6 +46,13 @@ export default {
           700: '#b91c1c',
           800: '#991b1b',
           900: '#7f1d1d',
+        },
+        // Colores corporativos personalizados
+        corporate: {
+          light: '#f5f7fa',
+          DEFAULT: '#3b82f6',
+          dark: '#1e40af',
+          accent: '#0ea5e9',
         }
       }
     },

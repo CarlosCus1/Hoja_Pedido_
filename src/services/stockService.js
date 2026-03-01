@@ -266,3 +266,127 @@ export function getStock(sku, stockData) {
   if (!stockData || !sku) return 0;
   return stockData[sku] ?? 0;
 }
+
+/**
+ * Parsea un archivo Excel de pedido previamente exportado
+ * Extrae códigos de producto y cantidades para edición
+ * NOTA: Los precios se toman del catálogo (JSON), no del Excel, para mantener la fuente de la verdad
+ * @param {File} file - Archivo Excel de pedido
+ * @param {Array} catalogoProductos - Array de productos del catálogo para obtener precios actualizados
+ * @returns {Promise<Object>} Objeto con cliente y productos
+ */
+export async function parsePedidoFile(file, catalogoProductos = []) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = async (e) => {
+      try {
+        const arrayBuffer = e.target.result;
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Leer datos como array de arrays para manejar encabezados
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (rawData.length < 2) {
+          throw new Error('El archivo no contiene datos de pedido');
+        }
+        
+        // La primera fila son los encabezados
+        const headers = rawData[0];
+        
+        // Encontrar índices de columnas (case insensitive)
+        const findColumnIndex = (names) => {
+          for (let i = 0; i < headers.length; i++) {
+            const header = String(headers[i] || '').toUpperCase().trim();
+            if (names.some(name => header.includes(name))) return i;
+          }
+          return -1;
+        };
+        
+        const rucIdx = findColumnIndex(['RUC', 'RUC/DNI', 'DOCUMENTO']);
+        const ocIdx = findColumnIndex(['OC', 'ORDEN', 'ORDEN_COMPRA']);
+        const skuIdx = findColumnIndex(['SKU', 'CODIGO', 'CÓDIGO', 'PRODUCTO']);
+        const cantidadIdx = findColumnIndex(['CANTIDAD', 'CANT', 'QTY', 'QUANTITY']);
+        const obsIdx = findColumnIndex(['OBSERVACIONES', 'OBS', 'OBSERVACION', 'NOTA']);
+        
+        if (skuIdx === -1 || cantidadIdx === -1) {
+          throw new Error('No se encontraron las columnas SKU o CANTIDAD en el archivo');
+        }
+        
+        // Extraer datos del cliente de la primera fila de datos
+        const firstDataRow = rawData[1] || [];
+        const clientData = {
+          ruc: rucIdx >= 0 ? String(firstDataRow[rucIdx] || '').trim() : '',
+          oc: ocIdx >= 0 ? String(firstDataRow[ocIdx] || '').trim() : ''
+        };
+        
+        // Crear mapa del catálogo para búsqueda rápida
+        const catalogoMap = new Map();
+        catalogoProductos.forEach(p => {
+          catalogoMap.set(p.codigo, p);
+        });
+        
+        // Extraer productos (omitir fila de encabezados)
+        const products = [];
+        const noEncontrados = [];
+        
+        for (let i = 1; i < rawData.length; i++) {
+          const row = rawData[i];
+          if (!row || row.length === 0) continue;
+          
+          const sku = String(row[skuIdx] || '').trim();
+          const cantidad = parseFloat(row[cantidadIdx]) || 0;
+          
+          if (sku && cantidad > 0) {
+            // Buscar producto en catálogo (fuente de la verdad)
+            const productoCatalogo = catalogoMap.get(sku);
+            
+            if (productoCatalogo) {
+              products.push({
+                codigo: sku,
+                cantidad: cantidad,
+                precioLista: productoCatalogo.precioLista || 0,
+                bxSize: productoCatalogo.bxSize || 1,
+                nombre: productoCatalogo.nombre || '',
+                observacion: obsIdx >= 0 ? String(row[obsIdx] || '') : ''
+              });
+            } else {
+              // Producto no encontrado en catálogo
+              noEncontrados.push(sku);
+              // Aún así agregarlo pero marcado como personalizado
+              products.push({
+                codigo: sku,
+                cantidad: cantidad,
+                precioLista: 0,
+                bxSize: 1,
+                nombre: 'Producto no encontrado en catálogo',
+                observacion: (obsIdx >= 0 ? String(row[obsIdx] || '') : '') + ' [NO CATÁLOGO]',
+                esPersonalizado: true
+              });
+            }
+          }
+        }
+        
+        console.log(`Pedido parseado: ${products.length} productos, RUC: ${clientData.ruc}`);
+        if (noEncontrados.length > 0) {
+          console.warn(`Productos no encontrados en catálogo: ${noEncontrados.join(', ')}`);
+        }
+        
+        resolve({
+          clientData,
+          products,
+          count: products.length,
+          noEncontrados: noEncontrados.length > 0 ? noEncontrados : null
+        });
+        
+      } catch (err) {
+        reject(err);
+      }
+    };
+    
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
+}
