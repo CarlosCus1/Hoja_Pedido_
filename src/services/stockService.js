@@ -140,7 +140,7 @@ export async function fetchStockFromAPI() {
   try {
     // Intentar cargar desde el archivo generado por GitHub Actions
     const response = await fetch('./stock_data.json', { 
-      signal: AbortSignal.timeout(2000) // Timeout de 2 segundos
+      signal: AbortSignal.timeout(10000) // Timeout de 10 segundos para archivo grande
     });
 
     // Si el archivo no existe (404), retornar null silenciosamente

@@ -104,6 +104,20 @@ export function formatFechaCorta(fecha) {
 }
 
 /**
+ * Validates if a string is a valid ISO 8601 timestamp
+ * @param {string} timestamp - The timestamp to validate
+ * @returns {boolean} True if valid ISO 8601 format
+ */
+export function isValidISOTimestamp(timestamp) {
+  if (!timestamp || typeof timestamp !== 'string') return false;
+  // ISO 8601 format: YYYY-MM-DDTHH:mm:ss.sssZ
+  const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
+  if (!isoRegex.test(timestamp)) return false;
+  const date = new Date(timestamp);
+  return !isNaN(date.getTime());
+}
+
+/**
  * Formats an ISO 8601 timestamp into a local Peruvian format.
  * Shows date and time in format: "dd/mm/yyyy, hh:mm:ss a. m./p. m."
  *
@@ -111,7 +125,9 @@ export function formatFechaCorta(fecha) {
  * @returns {string} The formatted timestamp in local format.
  */
 export function formatTimestamp(isoTimestamp) {
-  if (!isoTimestamp) return 'nunca';
+  if (!isoTimestamp || !isValidISOTimestamp(isoTimestamp)) {
+    return 'Fecha inválida';
+  }
 
   const date = new Date(isoTimestamp);
   
@@ -134,7 +150,7 @@ export function formatTimestamp(isoTimestamp) {
  * @returns {string} - Descripción del tiempo transcurrido
  */
 export function getTimeAgo(isoTimestamp) {
-  if (!isoTimestamp) return '';
+  if (!isoTimestamp || !isValidISOTimestamp(isoTimestamp)) return '';
   
   const date = new Date(isoTimestamp);
   const now = new Date();
@@ -161,7 +177,7 @@ export function getTimeAgo(isoTimestamp) {
  * @returns {string} - Clase de color Tailwind
  */
 export function getStockAgeColor(isoTimestamp) {
-  if (!isoTimestamp) return 'text-slate-400';
+  if (!isoTimestamp || !isValidISOTimestamp(isoTimestamp)) return 'text-slate-400';
   
   const date = new Date(isoTimestamp);
   const now = new Date();

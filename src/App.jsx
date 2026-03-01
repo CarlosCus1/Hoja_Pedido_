@@ -38,7 +38,7 @@
 
 import { useState, useEffect, useMemo, useCallback, Fragment, useRef } from 'react';
 import { useDebounce } from './hooks/useDebounce';
-import { formatMoney, calcularBx, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, formatTimestamp, getTimeAgo, getStockAgeColor } from './utils/formatters';
+import { formatMoney, calcularBx, getFechaActual, validarDocumento, tipoDocumento, getFechaCorta, getFechaCompacta, formatFechaCorta, formatTimestamp, getTimeAgo, getStockAgeColor, isValidISOTimestamp } from './utils/formatters';
 import { generateExcel } from './utils/xlsxGenerator';
 import { syncStock, loadStockFromIndexedDB, getStock, syncStockFromFile, parsePedidoFile, loadStockTimestamp } from './services/stockService';
 
@@ -451,8 +451,12 @@ function App() {
       .then(([savedStock, savedTimestamp]) => {
         if (savedStock && Object.keys(savedStock).length > 0) {
           setStockData(savedStock);
-          setStockLastSync(savedTimestamp || localStorage.getItem('stockLastSync'));
-          setStockTimestamp(savedTimestamp || localStorage.getItem('stockLastSync'));
+          // Validar que el timestamp sea formato ISO 8601
+          const validTimestamp = isValidISOTimestamp(savedTimestamp) ? savedTimestamp : null;
+          const localTimestamp = localStorage.getItem('stockLastSync');
+          const validLocalTimestamp = isValidISOTimestamp(localTimestamp) ? localTimestamp : null;
+          setStockLastSync(validTimestamp || validLocalTimestamp);
+          setStockTimestamp(validTimestamp || validLocalTimestamp);
         }
       })
       .catch(err => console.error('Error cargando stock guardado:', err));
@@ -480,7 +484,7 @@ function App() {
 
   // Guardar fecha de sincronización de stock en localStorage
   useEffect(() => {
-    if (stockLastSync) {
+    if (stockLastSync && isValidISOTimestamp(stockLastSync)) {
       localStorage.setItem('stockLastSync', stockLastSync);
     }
   }, [stockLastSync]);
