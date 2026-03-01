@@ -186,7 +186,15 @@ export async function syncStock() {
         success: true,
         stock: {},
         count: 0,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toLocaleString('es-PE', {
+          timeZone: 'America/Lima',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        }),
         source: 'catalogo'
       };
     }
@@ -263,7 +271,15 @@ export async function syncStockFromFile(file) {
       success: true,
       stock: stockObj,
       count: stockData.length,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString('es-PE', {
+        timeZone: 'America/Lima',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
     };
   } catch (error) {
     console.error('Error en syncStockFromFile:', error);
