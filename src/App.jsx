@@ -179,6 +179,14 @@ function App() {
   const [stockTimestamp, setStockTimestamp] = useState(null);
   const [stockError, setStockError] = useState(null);
   const stockFileInputRef = useRef(null);
+  
+  // Estado para polling automático de stock
+  const [serverStockTimestamp, setServerStockTimestamp] = useState(null);
+  const [hasNewStockAvailable, setHasNewStockAvailable] = useState(false);
+  
+  // Estado para verificación de catálogo
+  const [catalogVersion, setCatalogVersion] = useState(null);
+  const [hasNewCatalogAvailable, setHasNewCatalogAvailable] = useState(false);
 
   // Estado del cliente
   const [clientData, setClientData] = useState({
@@ -294,6 +302,26 @@ function App() {
         setStockData(result.stock);
         setStockLastSync(result.timestamp);
         setStockTimestamp(result.timestamp);
+        setHasNewStockAvailable(false);
+        
+        // Guardar versión para futuras comparaciones HEAD
+        try {
+          const cacheBuster = `?_=${Date.now()}`;
+          const headResponse = await fetch(`./stock_data.json${cacheBuster}`, {
+            method: 'HEAD',
+            signal: AbortSignal.timeout(5000)
+          });
+          if (headResponse.ok) {
+            const lastModified = headResponse.headers.get('Last-Modified');
+            const etag = headResponse.headers.get('ETag');
+            if (lastModified || etag) {
+              localStorage.setItem('stockDataVersion', lastModified || etag);
+            }
+          }
+        } catch (e) {
+          // Ignorar errores de HEAD request
+        }
+        
         alert(`✅ Sincronización completa:\n• ${normalizedData.length} productos recargados\n• ${result.count} stocks actualizados`);
       } else {
         setStockError(result.error);
@@ -303,6 +331,141 @@ function App() {
       console.error('Error sincronizando:', err);
       setStockError(err.message);
       alert(`❌ Error: ${err.message}\n\nVerifique su conexión y que los archivos JSON existan.`);
+    } finally {
+      setStockLoading(false);
+    }
+  };
+
+  // Verificar si hay actualizaciones de stock disponibles en el servidor (polling)
+  // Usa HEAD request primero para eficiencia, solo descarga si hay cambios
+  const checkForStockUpdates = async () => {
+    try {
+      const cacheBuster = `?_=${Date.now()}`;
+      
+      // Primero verificar con HEAD (muy ligero, solo headers)
+      const headResponse = await fetch(`./stock_data.json${cacheBuster}`, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(10000)
+      });
+      
+      if (!headResponse.ok) return;
+      
+      // Usar Last-Modified o ETag para detectar cambios rápidamente
+      const lastModified = headResponse.headers.get('Last-Modified');
+      const etag = headResponse.headers.get('ETag');
+      const serverVersion = lastModified || etag;
+      
+      // Si tenemos una versión guardada y no ha cambiado, no hacer nada
+      const cachedVersion = localStorage.getItem('stockDataVersion');
+      if (serverVersion && cachedVersion === serverVersion) {
+        return; // No hay cambios, salir sin descargar
+      }
+      
+      // Hay cambios, descargar el JSON completo
+      const response = await fetch(`./stock_data.json${cacheBuster}`, {
+        signal: AbortSignal.timeout(10000)
+      });
+      
+      if (!response.ok) return;
+      
+      const jsonData = await response.json();
+      const serverTimestamp = jsonData.timestamp;
+      
+      // Guardar la versión para futuras comparaciones
+      if (serverVersion) {
+        localStorage.setItem('stockDataVersion', serverVersion);
+      }
+      
+      if (isValidISOTimestamp(serverTimestamp)) {
+        setServerStockTimestamp(serverTimestamp);
+        
+        // Comparar con el timestamp actual
+        const currentTimestamp = stockLastSync || stockTimestamp;
+        if (!currentTimestamp || new Date(serverTimestamp) > new Date(currentTimestamp)) {
+          setHasNewStockAvailable(true);
+          console.log('Nuevo stock disponible:', serverTimestamp);
+        }
+      }
+    } catch (err) {
+      // Silenciar errores de polling (no es crítico)
+      console.log('Polling: no se pudo verificar actualizaciones', err.message);
+    }
+  };
+
+  // Verificar si hay actualizaciones en el catálogo de productos
+  const checkForCatalogUpdates = async () => {
+    try {
+      const cacheBuster = `?_=${Date.now()}`;
+      const response = await fetch(`./productos_local.json${cacheBuster}`, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(10000)
+      });
+      
+      if (!response.ok) return;
+      
+      // Usar el encabezado Last-Modified o ETag para detectar cambios
+      const lastModified = response.headers.get('Last-Modified');
+      const etag = response.headers.get('ETag');
+      const currentVersion = lastModified || etag || Date.now().toString();
+      
+      // Guardar la versión actual si es la primera vez
+      if (!catalogVersion) {
+        setCatalogVersion(currentVersion);
+        localStorage.setItem('catalogVersion', currentVersion);
+        return;
+      }
+      
+      // Comparar con la versión guardada
+      if (currentVersion !== catalogVersion) {
+        setHasNewCatalogAvailable(true);
+        console.log('Nuevo catálogo disponible:', currentVersion);
+      }
+    } catch (err) {
+      // Silenciar errores de polling
+      console.log('Polling: no se pudo verificar actualizaciones del catálogo', err.message);
+    }
+  };
+
+  // Sincronizar solo el stock sin recargar el catálogo completo
+  const syncStockOnly = async () => {
+    setStockLoading(true);
+    setStockError(null);
+    
+    try {
+      // Limpiar cache de stock en IndexedDB
+      await clearStore('stockAPI');
+      
+      // Sincronizar stock desde la API
+      const result = await syncStock();
+      
+      if (result.success) {
+        setStockData(result.stock);
+        setStockLastSync(result.timestamp);
+        setStockTimestamp(result.timestamp);
+        setHasNewStockAvailable(false);
+        
+        // Guardar versión para futuras comparaciones HEAD
+        const cacheBuster = `?_=${Date.now()}`;
+        const headResponse = await fetch(`./stock_data.json${cacheBuster}`, {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(5000)
+        });
+        if (headResponse.ok) {
+          const lastModified = headResponse.headers.get('Last-Modified');
+          const etag = headResponse.headers.get('ETag');
+          if (lastModified || etag) {
+            localStorage.setItem('stockDataVersion', lastModified || etag);
+          }
+        }
+        
+        console.log('Stock actualizado:', result.count, 'productos');
+      } else {
+        setStockError(result.error);
+        console.warn('Error sincronizando stock:', result.error);
+      }
+    } catch (err) {
+      console.error('Error en syncStockOnly:', err);
+      setStockError(err.message);
     } finally {
       setStockLoading(false);
     }
@@ -546,6 +709,44 @@ function App() {
       localStorage.setItem('stockLastSync', stockLastSync);
     }
   }, [stockLastSync]);
+
+  // Polling automático para verificar actualizaciones de stock (cada 5 minutos)
+  useEffect(() => {
+    // Verificar inmediatamente al cargar
+    checkForStockUpdates();
+    
+    // Configurar polling cada 5 minutos (300000 ms) solo para stock
+    const STOCK_POLLING_INTERVAL = 5 * 60 * 1000; // 5 minutos
+    const intervalId = setInterval(checkForStockUpdates, STOCK_POLLING_INTERVAL);
+    
+    // Limpiar intervalo al desmontar
+    return () => clearInterval(intervalId);
+  }, [stockLastSync, stockTimestamp]); // Re-ejecutar si cambian estos timestamps
+
+  // Verificación del catálogo: solo una vez al día
+  useEffect(() => {
+    const checkDailyCatalog = () => {
+      const lastCatalogCheck = localStorage.getItem('lastCatalogCheck');
+      const now = Date.now();
+      const ONE_DAY = 24 * 60 * 60 * 1000; // 24 horas en ms
+      
+      // Verificar si nunca se ha verificado o si pasó más de un día
+      if (!lastCatalogCheck || (now - parseInt(lastCatalogCheck)) > ONE_DAY) {
+        checkForCatalogUpdates();
+        localStorage.setItem('lastCatalogCheck', now.toString());
+      }
+    };
+    
+    checkDailyCatalog();
+  }, []); // Solo al cargar
+
+  // Cargar versión del catálogo desde localStorage al iniciar
+  useEffect(() => {
+    const savedCatalogVersion = localStorage.getItem('catalogVersion');
+    if (savedCatalogVersion) {
+      setCatalogVersion(savedCatalogVersion);
+    }
+  }, []);
 
   // Filtrar productos según búsqueda (por código o nombre)
   const filteredProducts = useMemo(() => {
@@ -1159,6 +1360,49 @@ function App() {
           </div>
         </div>
       </section>
+
+      {/* Notificación de stock nuevo disponible */}
+      {hasNewStockAvailable && (
+        <section className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/20 border-b border-amber-200 dark:border-amber-800/50 animate-pulse">
+          <div className="max-w-7xl mx-auto px-4 py-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm">
+                <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-amber-800 dark:text-amber-200 font-medium">
+                  Hay una actualización de stock disponible
+                </span>
+                <span className="text-amber-600 dark:text-amber-400 text-xs hidden sm:inline">
+                  ({serverStockTimestamp ? new Date(serverStockTimestamp).toLocaleString() : 'Nuevo'})
+                </span>
+              </div>
+              <button
+                onClick={syncStockOnly}
+                disabled={stockLoading}
+                className="text-xs px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors flex items-center gap-1"
+              >
+                {stockLoading ? (
+                  <>
+                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Actualizando...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Actualizar ahora
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Datos del Cliente */}
