@@ -139,7 +139,9 @@ export async function getStockBySku(sku) {
 export async function fetchStockFromAPI() {
   try {
     // Intentar cargar desde el archivo generado por GitHub Actions
-    const response = await fetch('./stock_data.json', { 
+    // Agregar timestamp para evitar caché del navegador
+    const cacheBuster = `?_=${Date.now()}`;
+    const response = await fetch(`./stock_data.json${cacheBuster}`, { 
       signal: AbortSignal.timeout(10000) // Timeout de 10 segundos para archivo grande
     });
 
