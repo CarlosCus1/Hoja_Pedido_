@@ -46,7 +46,7 @@ jobs:
             echo "has_changes=true" >> $GITHUB_OUTPUT
           fi
       
-      - name: Commit y push si hay cambios
+      - name: Commit y push a main si hay cambios
         if: steps.verify-changes.outputs.has_changes == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -56,3 +56,26 @@ jobs:
           git add public/stock_data.json
           git commit -m "Actualizar stock desde appweb - $(date +'%Y-%m-%d %H:%M')"
           git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+      
+      - name: Copiar stock a gh-pages
+        if: steps.verify-changes.outputs.has_changes == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Guardar el archivo actualizado temporalmente
+          cp public/stock_data.json /tmp/stock_data.json
+          
+          # Cambiar a rama gh-pages
+          git fetch origin gh-pages
+          git checkout gh-pages
+          
+          # Copiar el archivo actualizado
+          cp /tmp/stock_data.json public/stock_data.json
+          
+          # Commit y push a gh-pages
+          git add public/stock_data.json
+          git commit -m "Sync: Actualizar stock desde appweb - $(date +'%Y-%m-%d %H:%M')" || echo "No hay cambios para commit"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git gh-pages
+          
+          # Volver a main
+          git checkout main
