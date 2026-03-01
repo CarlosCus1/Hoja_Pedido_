@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 
 // Nombre de la base de datos
 const DB_NAME = 'HojaPedidoDB';
-const STOCK_DB_VERSION = 4; // Nueva versión para el store de stock
+const STOCK_DB_VERSION = 5; // Sincronizado con DB_VERSION en App.jsx
 
 // URL de la API de stock (appweb CIPSA) - usado por GitHub Actions
 const STOCK_API_URL = 'http://appweb.cipsa.com.pe:8054/AlmacenStock/DownLoadFiles?value={%22%20%22:%22%22,%22parametroX1%22:%220%22,%22parametroX2%22:%220%22}';
