@@ -473,15 +473,48 @@ function App() {
     
     // Cargar stock guardado en IndexedDB al iniciar
     Promise.all([loadStockFromIndexedDB(), loadStockTimestamp()])
-      .then(([savedStock, savedTimestamp]) => {
+      .then(async ([savedStock, savedTimestamp]) => {
         if (savedStock && Object.keys(savedStock).length > 0) {
           setStockData(savedStock);
           // Validar que el timestamp sea formato ISO 8601
           const validTimestamp = isValidISOTimestamp(savedTimestamp) ? savedTimestamp : null;
           const localTimestamp = localStorage.getItem('stockLastSync');
           const validLocalTimestamp = isValidISOTimestamp(localTimestamp) ? localTimestamp : null;
-          setStockLastSync(validTimestamp || validLocalTimestamp);
-          setStockTimestamp(validTimestamp || validLocalTimestamp);
+          const cachedTimestamp = validTimestamp || validLocalTimestamp;
+          
+          // Intentar obtener el timestamp más reciente desde el archivo JSON
+          try {
+            const cacheBuster = `?_=${Date.now()}`;
+            const response = await fetch(`./stock_data.json${cacheBuster}`);
+            if (response.ok) {
+              const jsonData = await response.json();
+              const fileTimestamp = jsonData.timestamp;
+              
+              // Usar el timestamp más reciente (el del archivo JSON si es válido y más nuevo)
+              if (isValidISOTimestamp(fileTimestamp)) {
+                if (!cachedTimestamp || new Date(fileTimestamp) > new Date(cachedTimestamp)) {
+                  setStockLastSync(fileTimestamp);
+                  setStockTimestamp(fileTimestamp);
+                  // Actualizar también en localStorage para futuras cargas
+                  localStorage.setItem('stockLastSync', fileTimestamp);
+                  console.log('Timestamp actualizado desde archivo JSON:', fileTimestamp);
+                } else {
+                  setStockLastSync(cachedTimestamp);
+                  setStockTimestamp(cachedTimestamp);
+                }
+              } else {
+                setStockLastSync(cachedTimestamp);
+                setStockTimestamp(cachedTimestamp);
+              }
+            } else {
+              setStockLastSync(cachedTimestamp);
+              setStockTimestamp(cachedTimestamp);
+            }
+          } catch (fetchErr) {
+            // Si falla la carga del JSON, usar el timestamp en caché
+            setStockLastSync(cachedTimestamp);
+            setStockTimestamp(cachedTimestamp);
+          }
         }
       })
       .catch(err => console.error('Error cargando stock guardado:', err));
