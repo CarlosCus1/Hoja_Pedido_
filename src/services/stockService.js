@@ -98,7 +98,7 @@ export async function getStockBySku(sku) {
 
 /**
  * Carga el stock desde el archivo JSON generado por GitHub Actions
- * @returns {Promise<Array>} Array de objetos con sku y disponible
+ * @returns {Promise<Object|null>} Objeto con data, count y timestamp, o null si no existe
  */
 export async function fetchStockFromAPI() {
   try {
@@ -106,6 +106,12 @@ export async function fetchStockFromAPI() {
     const response = await fetch('./stock_data.json', { 
       signal: AbortSignal.timeout(2000) // Timeout de 2 segundos
     });
+
+    // Si el archivo no existe (404), retornar null silenciosamente
+    if (response.status === 404) {
+      console.log('Stock: archivo no encontrado, usando catálogo como fuente');
+      return null;
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -116,9 +122,10 @@ export async function fetchStockFromAPI() {
     return result;
 
   } catch (error) {
-    // No loguear si es un error de fetch (archivo no existe), es normal
-    if (error.name === 'AbortError' || error.message.includes('Failed to fetch')) {
-      throw new Error('El archivo de stock no está disponible. Usa el botón "Cargar" para importar el Excel manualmente.');
+    // Si es abort o error de red, retornar null (no es error crítico)
+    if (error.name === 'AbortError' || error.message?.includes('Failed to fetch')) {
+      console.log('Stock: no disponible en servidor, usando catálogo');
+      return null;
     }
     
     console.error('Error cargando stock:', error);
@@ -172,6 +179,18 @@ export async function parseStockFile(file) {
 export async function syncStock() {
   try {
     const stockData = await fetchStockFromAPI();
+    
+    // Si no hay stock en el servidor, retornar éxito pero vacío
+    if (!stockData) {
+      return {
+        success: true,
+        stock: {},
+        count: 0,
+        timestamp: new Date().toISOString(),
+        source: 'catalogo'
+      };
+    }
+    
     await saveStockToIndexedDB(stockData.data);
     
     // Convertir a objeto para uso rápido
@@ -184,7 +203,8 @@ export async function syncStock() {
       success: true,
       stock: stockObj,
       count: stockData.count,
-      timestamp: stockData.timestamp
+      timestamp: stockData.timestamp,
+      source: 'api'
     };
   } catch (error) {
     console.error('Error en syncStock:', error);
