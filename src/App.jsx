@@ -710,18 +710,22 @@ function App() {
     }
   }, [stockLastSync]);
 
+  // Ref para almacenar la función de polling actual (evita re-creación del intervalo)
+  const checkForStockUpdatesRef = useRef(checkForStockUpdates);
+  checkForStockUpdatesRef.current = checkForStockUpdates;
+
   // Polling automático para verificar actualizaciones de stock (cada 5 minutos)
   useEffect(() => {
     // Verificar inmediatamente al cargar
-    checkForStockUpdates();
-    
+    checkForStockUpdatesRef.current();
+
     // Configurar polling cada 5 minutos (300000 ms) solo para stock
     const STOCK_POLLING_INTERVAL = 5 * 60 * 1000; // 5 minutos
-    const intervalId = setInterval(checkForStockUpdates, STOCK_POLLING_INTERVAL);
-    
+    const intervalId = setInterval(() => checkForStockUpdatesRef.current(), STOCK_POLLING_INTERVAL);
+
     // Limpiar intervalo al desmontar
     return () => clearInterval(intervalId);
-  }, [stockLastSync, stockTimestamp]); // Re-ejecutar si cambian estos timestamps
+  }, []); // Sin dependencias - el ref siempre apunta a la versión actual
 
   // Verificación del catálogo: solo una vez al día
   useEffect(() => {

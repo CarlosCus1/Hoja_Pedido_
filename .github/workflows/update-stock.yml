@@ -65,6 +65,14 @@ jobs:
           # Guardar el archivo actualizado temporalmente
           cp public/stock_data.json /tmp/stock_data.json
           
+          # Función para volver a main siempre
+          cleanup() {
+            echo "Volviendo a main..."
+            git checkout main || git checkout -b main origin/main || true
+          }
+          # Asegurar que siempre volvamos a main al salir
+          trap cleanup EXIT
+          
           # Cambiar a rama gh-pages
           git fetch origin gh-pages
           git checkout gh-pages
@@ -77,5 +85,4 @@ jobs:
           git commit -m "Sync: Actualizar stock desde appweb - $(date +'%Y-%m-%d %H:%M')" || echo "No hay cambios para commit"
           git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git gh-pages
           
-          # Volver a main
-          git checkout main
+          # Volver a main (el trap EXIT también se ejecutará)
