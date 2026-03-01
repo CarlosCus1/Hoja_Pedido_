@@ -371,20 +371,24 @@ function App() {
       const jsonData = await response.json();
       const serverTimestamp = jsonData.timestamp;
       
+      // Validar timestamp antes de guardar la versión
+      if (!isValidISOTimestamp(serverTimestamp)) {
+        console.warn('Timestamp del servidor inválido:', serverTimestamp);
+        return;
+      }
+      
       // Guardar la versión para futuras comparaciones
       if (serverVersion) {
         localStorage.setItem('stockDataVersion', serverVersion);
       }
       
-      if (isValidISOTimestamp(serverTimestamp)) {
-        setServerStockTimestamp(serverTimestamp);
+      setServerStockTimestamp(serverTimestamp);
         
-        // Comparar con el timestamp actual
-        const currentTimestamp = stockLastSync || stockTimestamp;
-        if (!currentTimestamp || new Date(serverTimestamp) > new Date(currentTimestamp)) {
-          setHasNewStockAvailable(true);
-          console.log('Nuevo stock disponible:', serverTimestamp);
-        }
+      // Comparar con el timestamp actual
+      const currentTimestamp = stockLastSync || stockTimestamp;
+      if (!currentTimestamp || new Date(serverTimestamp) > new Date(currentTimestamp)) {
+        setHasNewStockAvailable(true);
+        console.log('Nuevo stock disponible:', serverTimestamp);
       }
     } catch (err) {
       // Silenciar errores de polling (no es crítico)

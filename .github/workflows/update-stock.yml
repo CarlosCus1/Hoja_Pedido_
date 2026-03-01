@@ -67,8 +67,12 @@ jobs:
           
           # Función para volver a main siempre
           cleanup() {
+            local exit_code=$?
             echo "Volviendo a main..."
-            git checkout main || git checkout -b main origin/main || true
+            if ! git checkout main 2>/dev/null; then
+              git checkout -b main origin/main 2>/dev/null || echo "⚠️ No se pudo volver a main"
+            fi
+            return $exit_code
           }
           # Asegurar que siempre volvamos a main al salir
           trap cleanup EXIT
