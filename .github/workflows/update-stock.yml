@@ -84,14 +84,11 @@ jobs:
           git fetch origin gh-pages
           git checkout gh-pages
           
-          # Crear directorio public si no existe (gh-pages tiene estructura diferente)
-          mkdir -p public
-          
-          # Copiar el archivo actualizado
-          cp /tmp/stock_data.json public/stock_data.json
+          # Copiar el archivo actualizado a la raíz (gh-pages sirve desde raíz)
+          cp /tmp/stock_data.json stock_data.json
           
           # Commit y push a gh-pages
-          git add public/stock_data.json
+          git add stock_data.json
           git commit -m "Sync: Actualizar stock desde appweb - $(date +'%Y-%m-%d %H:%M')" || echo "No hay cambios para commit"
           git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git gh-pages
           
