@@ -6,6 +6,26 @@ Sistema de gestión de hojas de pedido para fuerza de ventas. Optimizado para m�
 ![React](https://img.shields.io/badge/React-18-61DAFB)
 ![Vite](https://img.shields.io/badge/Vite-5-646CFF)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-38B2AC)
+![Status](https://img.shields.io/badge/status-production-green)
+
+---
+
+## 📑 Tabla de Contenidos
+
+- [Características Principales](#-características-principales)
+- [Estructura del Proyecto](#-estructura-del-proyecto)
+- [Instalación y Uso](#️-instalación-y-uso)
+- [Configuración del Catálogo](#-configuración-del-catálogo)
+- [Sincronización de Stock](#-sincronización-de-stock)
+- [Guía de Uso](#-guía-de-uso)
+- [Formato de Exportación Excel](#-formato-de-exportación-excel)
+- [Paleta de Colores](#-paleta-de-colores-corporativa)
+- [Arquitectura de Datos](#️-arquitectura-de-datos)
+- [Tecnologías Utilizadas](#-tecnologías-utilizadas)
+- [Notas Técnicas](#-notas-técnicas)
+- [Solución de Problemas](#-solución-de-problemas)
+- [Contribución](#-contribución)
+- [Licencia](#-licencia)
 
 ---
 
@@ -151,7 +171,7 @@ El sistema acepta múltiples nombres de campo y los normaliza automáticamente:
 
 1. Reemplazar archivo `public/productos_local.json`
 2. Incrementar `DB_VERSION` en `src/App.jsx` (línea 47)
-3. Hacer commit y push
+3. Hacer commit y push (requiere permisos de escritura en el repositorio)
 4. Los usuarios verán el nuevo catálogo al recargar la app
 
 ---
@@ -326,6 +346,24 @@ VITE_APP_NAME=Hoja de Pedido
 - IndexedDB: ~50MB (depende del navegador)
 - Búsqueda: Máximo 50 resultados visibles
 - Exportación: Sin límite de productos
+
+---
+
+## 🔧 Solución de Problemas
+
+### Problemas Comunes
+
+| Problema | Causa Posible | Solución |
+|----------|---------------|----------|
+| No carga el catálogo | Versión de DB desactualizada | Incrementar `DB_VERSION` en App.jsx |
+| Stock no se sincroniza | Problema de red o repo | Verificar conexión y permisos del repo |
+| Exportación falla | Datos incompletos | Verificar que RUC y Provincia estén llenos |
+| Pérdida de pedido | Limpieza de navegador | Recuperar desde archivo Excel exportado |
+| App lenta | Muchos productos en pedido | Exportar y crear nuevo pedido |
+
+### Contacto de Soporte
+- Desarrollador: Carlos Cusi
+- Email: [tu-email@ejemplo.com]
 
 ---
 
