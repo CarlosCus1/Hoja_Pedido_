@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-03T13:10:01.264Z",
+  "timestamp": "2026-03-03T14:51:06.381Z",
   "almacen": "VES",
   "count": 1675,
   "data": [
@@ -1021,7 +1021,7 @@
     },
     {
       "sku": "02169",
-      "disponible": 23967
+      "disponible": 23895
     },
     {
       "sku": "02182",
@@ -1045,7 +1045,7 @@
     },
     {
       "sku": "02192",
-      "disponible": 71203
+      "disponible": 71107
     },
     {
       "sku": "02193",
@@ -1097,7 +1097,7 @@
     },
     {
       "sku": "02210",
-      "disponible": 78943
+      "disponible": 78843
     },
     {
       "sku": "02211",
@@ -1233,7 +1233,7 @@
     },
     {
       "sku": "03183",
-      "disponible": 15750
+      "disponible": 15700
     },
     {
       "sku": "03198",
@@ -1277,7 +1277,7 @@
     },
     {
       "sku": "03291",
-      "disponible": 1021
+      "disponible": 971
     },
     {
       "sku": "03292",
@@ -1369,7 +1369,7 @@
     },
     {
       "sku": "03464",
-      "disponible": 4780
+      "disponible": 4730
     },
     {
       "sku": "03465",
@@ -1381,11 +1381,11 @@
     },
     {
       "sku": "03467",
-      "disponible": 1293
+      "disponible": 1243
     },
     {
       "sku": "03468",
-      "disponible": 2269
+      "disponible": 2219
     },
     {
       "sku": "03469",
@@ -1397,7 +1397,7 @@
     },
     {
       "sku": "03472",
-      "disponible": 9145
+      "disponible": 9095
     },
     {
       "sku": "03473",
@@ -2541,7 +2541,7 @@
     },
     {
       "sku": "204234",
-      "disponible": 47
+      "disponible": 0
     },
     {
       "sku": "204246",
@@ -2873,7 +2873,7 @@
     },
     {
       "sku": "211985",
-      "disponible": 419
+      "disponible": 418
     },
     {
       "sku": "211986",
@@ -2881,7 +2881,7 @@
     },
     {
       "sku": "212007",
-      "disponible": 52
+      "disponible": 51
     },
     {
       "sku": "212026",
@@ -4085,7 +4085,7 @@
     },
     {
       "sku": "76287",
-      "disponible": 193859
+      "disponible": 193715
     },
     {
       "sku": "77004",
