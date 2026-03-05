@@ -49,8 +49,9 @@ function useProductos() {
   const dataLoadedRef = useRef(false);
   const abortControllerRef = useRef(null);
 
-  const loadData = useCallback(async () => {
-    if (dataLoadedRef.current) return;
+  const loadData = useCallback(async (forceReload = false) => {
+    // Si ya se cargó y no se fuerza, no volver a cargar
+    if (dataLoadedRef.current && !forceReload) return;
     
     // Cancelar fetch anterior si existe
     if (abortControllerRef.current) {
@@ -63,7 +64,7 @@ function useProductos() {
     
     try {
       // Cargar catálogo de productos
-      const response = await fetch('./productos_local.json', {
+      const response = await fetch('./productos_local.json?t=' + Date.now(), {
         signal: abortControllerRef.current.signal
       });
       if (!response.ok) throw new Error('No se pudo cargar el catálogo');
@@ -75,8 +76,9 @@ function useProductos() {
         const savedStock = localStorage.getItem('hoja_pedido_stock');
         if (savedStock) {
           const stockData = JSON.parse(savedStock);
-          // Crear mapa de SKU -> disponible
-          stockData.data.forEach(item => {
+          // Soportar formato nuevo (con stockData) y antiguo (con data)
+          const stockArray = stockData.stockData || stockData.data || [];
+          stockArray.forEach(item => {
             stockMap[item.sku] = item.disponible;
           });
         }
@@ -106,6 +108,18 @@ function useProductos() {
       setLoading(false);
     }
   }, []);
+
+  // Escuchar evento de actualización de stock
+  useEffect(() => {
+    const handleStockUpdate = () => {
+      console.log('📡 Evento stock-updated recibido, recargando catálogo...');
+      dataLoadedRef.current = false; // Permitir recarga
+      loadData(true); // Forzar recarga
+    };
+    
+    window.addEventListener('stock-updated', handleStockUpdate);
+    return () => window.removeEventListener('stock-updated', handleStockUpdate);
+  }, [loadData]);
 
   // Cleanup al desmontar
   useEffect(() => {

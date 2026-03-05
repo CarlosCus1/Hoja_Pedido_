@@ -5,7 +5,7 @@
  */
 
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { loadExcelFile } from '../utils/xlsxLoader';
 import Tooltip from '../components/Tooltip';
@@ -79,6 +79,7 @@ function Layout() {
   
   // Estado para timestamp de última sincronización de stock
   const [lastStockSync, setLastStockSync] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Estado para modales de confirmación y alerta
   const [modals, setModals] = useState({
@@ -89,13 +90,35 @@ function Layout() {
   
   const isActive = (path) => location.pathname === path;
 
-  // Cargar timestamp de stock al montar
-  useEffect(() => {
-    const savedSync = localStorage.getItem('hoja_pedido_stock_sync');
-    if (savedSync) {
-      setLastStockSync(JSON.parse(savedSync));
+  // Función para formatear fecha con hora (formato peruano: día/mes)
+  const formatSyncTime = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const hours = date.getHours();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${day}/${month} ${hour12}:${minutes} ${ampm}`;
+  };
+  
+  // Función para obtener el estado del stock basado en el tiempo (calculado con useMemo)
+  const stockStatus = useMemo(() => {
+    if (!lastStockSync) return { color: 'text-slate-400', bg: 'bg-slate-100', label: 'Sin actualizar' };
+    
+    const now = new Date();
+    const lastUpdate = new Date(lastStockSync);
+    const diffMinutes = Math.floor((now - lastUpdate) / (1000 * 60));
+    
+    if (diffMinutes < 60) {
+      return { color: 'text-green-600 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/30', label: 'Actualizado' };
+    } else if (diffMinutes < 70) {
+      return { color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30', label: 'Por actualizar' };
+    } else {
+      return { color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/30', label: 'Desactualizado' };
     }
-  }, []);
+  }, [lastStockSync]);
 
   // Función para mostrar alerta
   const showAlert = (title, message, type = 'info') => {
@@ -113,34 +136,56 @@ function Layout() {
     await performRefresh();
   };
   
-  // Ejecutar la actualización de stock
+  // Ejecutar la actualización de stock y catálogo
   const performRefresh = async () => {
+    setIsRefreshing(true);
     try {
+      console.log('🔄 Iniciando actualización de stock y catálogo...');
+      const startTime = Date.now();
+      
       // 1. Descargar stock fresco del servidor
+      console.log('📥 Descargando stock...');
       const stockResponse = await fetch('./stock_data.json?t=' + Date.now());
       if (!stockResponse.ok) {
         throw new Error('No se pudo descargar stock');
       }
       const stockData = await stockResponse.json();
       
-      // 2. Guardar en localStorage con timestamp
+      // 2. Descargar catálogo de productos
+      console.log('📥 Descargando catálogo...');
+      const catalogResponse = await fetch('./productos_local.json?t=' + Date.now());
+      if (!catalogResponse.ok) {
+        throw new Error('No se pudo descargar catálogo');
+      }
+      const catalogData = await catalogResponse.json();
+      
+      // 3. Guardar en localStorage con timestamp
       const syncInfo = {
         timestamp: new Date().toISOString(),
-        data: stockData.data,
-        count: stockData.count
+        stockData: stockData.data,
+        stockCount: stockData.count || stockData.data?.length || 0,
+        catalogData: catalogData,
+        catalogCount: catalogData.length
       };
       localStorage.setItem('hoja_pedido_stock', JSON.stringify(syncInfo));
       localStorage.setItem('hoja_pedido_stock_sync', JSON.stringify(syncInfo.timestamp));
       setLastStockSync(syncInfo.timestamp);
       
-      // 3. Forzar actualización del componente CatalogoPage sin recargar
+      const elapsed = Date.now() - startTime;
+      console.log(`✅ Actualización completada en ${elapsed}ms`);
+      console.log(`   - Stock: ${syncInfo.stockCount} productos`);
+      console.log(`   - Catálogo: ${syncInfo.catalogCount} productos`);
+      
+      // 4. Forzar actualización del componente CatalogoPage sin recargar
       window.dispatchEvent(new CustomEvent('stock-updated', { detail: syncInfo }));
       
-      // 4. Mostrar feedback al usuario
-      showAlert('Actualización Completa', 'Catálogo y stock actualizados correctamente', 'success');
+      // 5. Mostrar feedback al usuario
+      showAlert('Actualización Completa', `Stock (${syncInfo.stockCount}) y Catálogo (${syncInfo.catalogCount}) actualizados`, 'success');
     } catch (err) {
-      console.error('Error sincronizando stock:', err);
-      showAlert('Error de Sincronización', 'Error al sincronizar stock: ' + err.message, 'error');
+      console.error('❌ Error sincronizando:', err);
+      showAlert('Error de Sincronización', 'Error al sincronizar: ' + err.message, 'error');
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -190,7 +235,7 @@ function Layout() {
   // Cargar productos al carrito
   const loadProductsToCart = async (clientData, products) => {
     try {
-      const response = await fetch('./productos_local.json', {
+      const response = await fetch('./productos_local.json?t=' + Date.now(), {
         signal: abortControllerRef.current.signal
       });
       if (!response.ok) {
@@ -351,13 +396,18 @@ function Layout() {
             <Tooltip text="Actualiza catálogos, stock y precios" position="top">
               <button
                 onClick={handleRefresh}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                disabled={isRefreshing}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-50 ${stockStatus.color}`}
               >
-                <span className="material-symbols-outlined">refresh</span>
+                {isRefreshing ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-teal-600"></div>
+                ) : (
+                  <span className="material-symbols-outlined">refresh</span>
+                )}
                 <span>Actualizar</span>
-                {lastStockSync && (
-                  <span className="text-[10px] text-slate-400 ml-auto">
-                    {new Date(lastStockSync).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' })}
+                {lastStockSync && !isRefreshing && (
+                  <span className={`text-[10px] ml-auto ${stockStatus.color}`}>
+                    {formatSyncTime(lastStockSync)}
                   </span>
                 )}
               </button>
@@ -437,11 +487,16 @@ function Layout() {
           {/* 4. Actualizar */}
           <button
             onClick={handleRefresh}
-            className="flex flex-col items-center gap-1 text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-all"
-            title={lastStockSync ? `Última actualización: ${new Date(lastStockSync).toLocaleString('es-PE')}` : 'Actualizar datos'}
+            disabled={isRefreshing}
+            className={`flex flex-col items-center gap-1 hover:text-teal-600 dark:hover:text-teal-400 transition-all disabled:opacity-50 ${stockStatus.color}`}
+            title={lastStockSync ? `Última actualización: ${stockStatus.label} - ${formatSyncTime(lastStockSync)}` : 'Actualizar datos'}
           >
-            <span className="material-symbols-outlined text-2xl">refresh</span>
-            <span className="text-[10px] font-bold uppercase tracking-tight">Actualizar</span>
+            {isRefreshing ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600"></div>
+            ) : (
+              <span className="material-symbols-outlined text-2xl">refresh</span>
+            )}
+            <span className="text-[10px] font-bold uppercase tracking-tight">{isRefreshing ? 'Actualizando...' : stockStatus.label}</span>
           </button>
 
           {/* 5. Cliente */}

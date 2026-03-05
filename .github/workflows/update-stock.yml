@@ -90,7 +90,7 @@ jobs:
           cp /tmp/productos_local.json productos_local.json
           
           # Commit y push a gh-pages
-          git add stock_data.json productos_local.json
+          git add stock_data.json productos_local.json 404.html
           git commit -m "Sync: Actualizar stock y catálogo - $(date +'%Y-%m-%d %H:%M')" || echo "No hay cambios para commit"
           git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git gh-pages
           
