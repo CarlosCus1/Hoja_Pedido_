@@ -67,10 +67,11 @@ export function generateExcel(clientData, selectedProducts) {
     .replace(/\s+/g, '')  // Quitar espacios
     .replace(/[^a-z0-9]/g, '');  // Solo letras y números
   
-  // Nombre del archivo: OC_(ruc)_(provincia)_ddmmyy
-  // Ejemplo: OC_20100654025_trujillo_210226.xlsx
+  // Nombre del archivo: OC_(ruc)_(provincia)_(oc_o_fecha)
+  // Ejemplo: OC_20100654025_trujillo_050326.xlsx o OC_20100654025_sin_sucursal_050326.xlsx
   const ruc = clientData.ruc || 'sin_ruc';
-  const fileName = `OC_${ruc}_${provincia || 'sin_sucursal'}_${dateStr}.xlsx`;
+  const ocOrFecha = clientData.oc || dateStr;
+  const fileName = `OC_${ruc}_${provincia || 'sin_sucursal'}_${ocOrFecha}.xlsx`;
 
   // Descargar archivo
   XLSX.writeFile(wb, fileName);

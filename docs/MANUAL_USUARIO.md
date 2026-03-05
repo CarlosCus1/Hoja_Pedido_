@@ -1,4 +1,4 @@
-# 📘 Manual de Usuario - Hoja de Pedido v1.2.1
+# 📘 Manual de Usuario - Hoja de Pedido v1.3.0
 
 **Sistema de Gestión de Pedidos para Fuerza de Ventas**
 
@@ -8,11 +8,10 @@
 
 1. [Introducción](#1-introducción)
 2. [Primeros Pasos](#2-primeros-pasos)
-3. [Interfaz de Usuario](#3-interfaz-de-usuario)
+3. [Navegación](#3-navegación)
 4. [Flujo de Trabajo](#4-flujo-de-trabajo-paso-a-paso)
 5. [Funciones Avanzadas](#5-funciones-avanzadas)
-6. [Consejos y Buenas Prácticas](#6-consejos-y-buenas-prácticas)
-7. [Solución de Problemas](#7-solución-de-problemas)
+6. [Solución de Problemas](#6-solución-de-problemas)
 
 ---
 
@@ -23,26 +22,27 @@
 **Hoja de Pedido** es una aplicación web diseñada específicamente para el equipo de ventas que permite:
 
 - ✅ Crear pedidos de clientes de forma rápida y organizada
-- ✅ Buscar productos en el catálogo corporativo
+- ✅ Buscar productos en el catálogo corporativo por código, nombre o EAN
+- ✅ Filtrar productos por categorías (Pelotas, Escolar, Representadas)
 - ✅ Calcular automáticamente unidades y cajas
 - ✅ Exportar pedidos a formato Excel
+- ✅ Importar pedidos guardados previamente
 - ✅ Trabajar sin conexión a internet (modo offline)
 
-### 1.2 Ventajas Principales
+### 1.2 Novedades v1.3.0
 
-| Ventaja | Beneficio |
-|---------|-----------|
-| **Modo Offline** | Trabaja sin internet después de la primera carga |
-| **Sincronización** | Stock actualizado automáticamente |
-| **Móvil/Desktop** | Funciona perfectamente en celular y computadora |
-| **Números de Orden** | Facilita cotejo con listas manuscritas |
-| **Exportación Excel** | Archivo listo para procesar en el sistema |
+| Feature | Descripción |
+|---------|-------------|
+| **Navegación tipo App** | Barra inferior en móvil, sidebar en PC |
+| **Carga XLSX** | Importar pedidos guardados desde Excel |
+| **Tema Moderno** | Diseño con efectos glassmorphism |
+| **Validación de Stock** | Advertencias antes de agregar al carrito |
 
 ### 1.3 Requisitos
 
 - 📱 **Dispositivo**: Celular, tablet o computadora
 - 🌐 **Navegador**: Chrome, Safari, Firefox o Edge (última versión)
-- 📶 **Internet**: Solo necesario para la primera carga y sincronización de stock
+- 📶 **Internet**: Necesario para cargar la app y sincronizar stock
 
 ---
 
@@ -68,6 +68,8 @@ Al abrir la aplicación por primera vez:
 
 ```
 ┌─────────────────────────────────────────┐
+│  📋 Hoja de Pedido v1.3.0              │
+│  ─────────────────────────────────────  │
 │  Cargando catálogo de productos...      │
 │  ████████████░░░░░░░░  60%             │
 │                                         │
@@ -77,50 +79,72 @@ Al abrir la aplicación por primera vez:
 
 ⏱️ **Tiempo estimado**: 10-30 segundos (depende de la conexión)
 
-### 2.3 Sincronización de Stock
-
-**Importante**: La primera vez, sincronizar el stock:
-
-1. Buscar el botón 🔄 (arriba a la derecha)
-2. Tocar y esperar confirmación
-3. Verificar timestamp de última sincronización
-
 ---
 
-## 3. Interfaz de Usuario
+## 3. Navegación
 
 ### 3.1 Vista General
 
+La aplicación cuenta con dos vistas principales:
+
 ```
 ┌─────────────────────────────────────────┐
-│ 🌙  Hoja de Pedido v1.2.1     🔄 💾    │  ← Header
+│  📋 Hoja de Pedido         🌙 [Cliente] │  ← Header
 ├─────────────────────────────────────────┤
-│ 📋 Datos del Cliente           [▼]     │  ← Sección colapsable
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐   │
+│  │ Inicio  │ │ Catálogo│ │ Cargar  │   │  ← Navegación
+│  │    🏠   │ │    📖   │ │   📤    │   │     inferior
+│  └─────────┘ └─────────┘ └─────────┘   │
+│  ┌─────────┐ ┌─────────┐               │
+│  │Actualizar│ │Cliente  │               │
+│  │    🔄   │ │    👤   │               │
+│  └─────────┘ └─────────┘               │
 ├─────────────────────────────────────────┤
-│ 🔍 Buscar productos...                 │  ← Buscador
-│ ┌─────────────────────────────────────┐ │
-│ │ ☑️ [03290] Folder Oficio Celeste   │ │  ← Resultados
-│ │ ☑️ [03291] Folder Oficio Amarillo  │ │
-│ └─────────────────────────────────────┘ │
-├─────────────────────────────────────────┤
-│ 📦 Productos Seleccionados     [▼]     │  ← Pedido actual
-│ #1 03290 - 100 un = 2 Bx       🗑️      │
-│ #2 03291 - 50 un = 1 Bx        🗑️      │
-├─────────────────────────────────────────┤
-│                [📤 Exportar Excel]      │  ← Acción principal
+│                                         │
+│           CONTENIDO PRINCIPAL           │  ← Catálogo u Orden
+│                                         │
 └─────────────────────────────────────────┘
 ```
 
-### 3.2 Modo Móvil vs Desktop
+### 3.2 Navegación en Móvil
 
-| Característica | Móvil 📱 | Desktop 💻 |
-|----------------|----------|------------|
-| Layout | Tarjetas verticales | Tablas compactas |
-| Input cantidad | Teclado numérico | Teclado completo |
-| Atajos | Táctiles | Teclado (Tab, Enter) |
-| Vista | Una columna | Múltiples columnas |
+La barra de navegación inferior contiene 5 accesos:
 
-### 3.3 Modo Oscuro/Claro
+| Icono | Nombre | Función |
+|-------|--------|---------|
+| 🏠 | **Inicio** | Ir al catálogo de productos |
+| 📖 | **Catálogo** | Abrir catálogo online externo |
+| 📤 | **Cargar** | Importar pedido desde Excel |
+| 🔄 | **Actualizar** | Recargar datos y catálogos |
+| 👤 | **Cliente** | Abrir modal de datos del cliente |
+
+### 3.3 Navegación en Desktop (PC)
+
+En pantallas grandes (≥1024px), la navegación cambia a un **sidebar lateral**:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  📋 Hoja de Pedido                      🌙 [Cliente]   │
+├────────────┬────────────────────────────────────────────┤
+│            │                                            │
+│  🔍Buscar  │           CONTENIDO PRINCIPAL              │
+│  Productos │                                            │
+│            │  ┌─────────────────────────────────────┐   │
+│  📖Catálogo│  │  Catálogo / Orden de Compra        │   │
+│  Online    │  │                                     │   │
+│            │  └─────────────────────────────────────┘   │
+│  📤Cargar  │                                            │
+│  XLSX      │                                            │
+│            │                                            │
+│  🔄        │                                            │
+│  Actualizar│                                            │
+│            │                                            │
+│ ────────── │                                            │
+│ v1.3.0    │                                            │
+└────────────┴────────────────────────────────────────────┘
+```
+
+### 3.4 Modo Oscuro/Claro
 
 - 🌙 **Modo Oscuro**: Ideal para uso nocturno, reduce fatiga visual
 - ☀️ **Modo Claro**: Mejor visibilidad bajo luz solar
@@ -133,310 +157,144 @@ Al abrir la aplicación por primera vez:
 
 ### 4.1 Paso 1: Ingresar Datos del Cliente
 
-**Campos obligatorios marcados con ***
+**Importante**: El RUC/DNI es obligatorio para exportar.
+
+1. Tocar el botón **"Cliente"** en la barra de navegación
+2. Llenar los campos:
 
 ```
 ┌─────────────────────────────────────────┐
-│ 📋 Datos del Cliente                    │
+│  📋 Datos del Pedido                    │
 ├─────────────────────────────────────────┤
-│ RUC/DNI*: [20501234567    ]            │
-│ Cliente:  [Ferretería El Progreso]      │
-│ OC/Ref:   [280301         ] ← Auto      │
-│ Provincia*: [Trujillo      ]            │
-│ Dirección: [Av. Larco 123  ]            │
-│ Vendedor:  [Carlos Cusi    ]            │
+│  RUC/DNI*: [20501234567    ]           │
+│  Cliente:  [Ferretería El Progreso]    │
+│  OC/Ref:   [280301         ] ← Auto    │
+│  Provincia: [Trujillo       ]           │
+│  Dirección:[Av. Larco 123  ]            │
+│  Vendedor: [Carlos Cusi    ]           │
+│                                         │
+│  [ ✓ Guardar y Continuar ]             │
 └─────────────────────────────────────────┘
 ```
 
-**Notas importantes:**
+**Notas:**
 - **RUC/DNI**: 11 dígitos para RUC, 8 para DNI
 - **OC/Referencia**: Se autogenera con fecha si se deja vacío
-- **Provincia**: Aparecerá como nombre de pestaña en el Excel
-
----
+- **Provincia**: Appecerá como nombre de pestaña en el Excel
 
 ### 4.2 Paso 2: Buscar Productos
 
-#### Métodos de Búsqueda
+En la pantalla de **Inicio** (Catálogo):
 
-| Método | Ejemplo | Resultado |
-|--------|---------|-----------|
-| Código exacto | `03437` | Producto específico |
-| Código parcial | `034` | Todos los 034xx |
-| Descripción | `folder` | Todos con "folder" |
-| Categoría | `oficio` | Línea de oficio |
+1. **Seleccionar Categoría** (opcional):
+   - **Todos**: Búsqueda libre por código, nombre o EAN
+   - **Pelotas**: Pelotas, Juguetes, Mascotas
+   - **Escolar**: Escritura, Dibujo, Manualidades, etc.
+   - **Representadas**: Productos industriales, Publicidad
+
+2. **Buscar**: Escribir en el campo de búsqueda
+   - Código exacto: `03437`
+   - Código parcial: `034`
+   - Nombre: `folder`
+   - EAN: `7751...`
 
 #### Resultados de Búsqueda
 
 ```
 ┌─────────────────────────────────────────┐
-│ Resultados: 3 productos                 │
+│  Resultados: 3 productos                 │
 ├─────────────────────────────────────────┤
-│ ☑️ [03437]                              │
-│    FOLDER N VINIFAN DOBLE TAPA A4      │
-│    CELESTE GUSANO                      │
-│    💰 S/ 5.01  📦 50 un/caja           │
-│    [Cant: ___] [modo: Unidades ▼]      │
+│  [03437]                              │
+│  FOLDER N VINIFAN DOBLE TAPA A4        │
+│  CELESTE GUSANO                        │
+│  💰 S/ 5.01  📦 50 un/caja           │
+│  Stock: 4,900 un                       │
+│  ────────────────────────────────────   │
+│  [-] [___] [+] [+CAJA (50)] [Agregar] │
 ├─────────────────────────────────────────┤
-│ ☑️ [03438]                              │
-│    FOLDER N VINIFAN DOBLE TAPA A4      │
-│    VERDE LIMÓN GUSANO                  │
-│    💰 S/ 5.01  📦 50 un/caja           │
-│    [Cant: ___] [modo: Unidades ▼]      │
-├─────────────────────────────────────────┤
-│ ☑️ [03183]                              │
-│    FOLDER N VINIFAN DOBLE TAPA OFICIO  │
-│    VERDE CLARO GUSANO                  │
-│    💰 S/ 5.14  📦 50 un/caja           │
-│    [Cant: ___] [modo: Unidades ▼]      │
+│  [03438]                              │
+│  FOLDER N VINIFAN DOBLE TAPA A4        │
+│  VERDE LIMÓN GUSANO                    │
+│  ...                                   │
 └─────────────────────────────────────────┘
 ```
 
----
+### 4.3 Paso 3: Agregar Productos
 
-### 4.3 Paso 3: Ingresar Cantidades
+1. **Ingresar cantidad**: Usar los botones + / - o escribir directamente
+2. **Botón +CAJA**: Agrega una caja completa (ej: 50 unidades)
+3. **Agregar**: Tocar el botón para añadir al carrito
 
-#### Modo Unidades (por defecto)
+**Validación de Stock**:
+- Si el producto tiene **stock disponible**: Se agrega normalmente
+- Si el stock es **bajo**: Muestra advertencia pero permite agregar
+- Si **sin stock**: Advertencia, pero puede forzar la inclusión
 
-**Ejemplo con Folder A4 Celeste (50 un/caja):**
-```
-Cantidad: [100    ] unidades
-           = 2 Bx (cajas)
-           = S/ 501.00
-```
+### 4.4 Paso 4: Revisar el Carrito
 
-**Ejemplo con Témpera Vinifan (360 un/caja):**
-```
-Cantidad: [360    ] unidades
-           = 1 Bx (caja)
-           = S/ 324.00
-```
-
-#### Modo Cajas (Bx)
-
-**Ejemplo con Folder Oficio (50 un/caja):**
-```
-Cantidad: [10xBx  ] cajas
-           = 500 unidades
-           = S/ 2,570.00
-```
-
-**Ejemplo con Pelotas Crackcito (60 un/caja):**
-```
-Cantidad: [5xBx   ] cajas
-           = 300 unidades
-           = S/ 2,499.00
-```
-
-#### Notación Especial "xBx"
-
-La notación `10xBx` significa: **10 cajas**
-
-- Ventaja: Más rápido que calcular manualmente
-- Conversión: Automática a unidades para el Excel
-- Visualización: Muestra ambas equivalencias
-
----
-
-### 4.4 Paso 4: Gestionar el Pedido
-
-#### Vista del Pedido Actual
+Tocar el **botón flotante** que aparece cuando hay productos:
 
 ```
 ┌─────────────────────────────────────────┐
-│ 📦 Productos Seleccionados (5 items)    │
-│ 📊 Total: S/ 8,154.00                   │
-├─────────────────────────────────────────┤
-│ Ordenar por: [N° Orden ▼]              │
-├─────────────────────────────────────────┤
-│ #1  [03437] Folder A4 Celeste           │
-│     100 un = 2 Bx | S/ 501.00          │
-│     Obs: [Entregar en tienda      ] 🗑️ │
-├─────────────────────────────────────────┤
-│ #2  [03438] Folder A4 Verde Limón       │
-│     50 un = 1 Bx | S/ 250.50           │
-│     Obs: [                           ] 🗑️│
-├─────────────────────────────────────────┤
-│ #3  [01240] Pelota Crackcito Bl/Azl     │
-│     120 un = 2 Bx | S/ 999.60          │
-│     Obs: [Urgente                     ] 🗑️│
-├─────────────────────────────────────────┤
-│ #4  [77164] Témpera Vinifan 30g Blanco  │
-│     360 un = 1 Bx | S/ 324.00          │
-│     Obs: [                           ] 🗑️│
-├─────────────────────────────────────────┤
-│ #5  [016761] Fútbol Argentina #4        │
-│     48 un = 2 Bx | S/ 1,872.00         │
-│     Obs: [Pedido especial             ] 🗑️│
+│  🛒 5 ítems          678 und   Total:   │
+│  💰 S/ 8,154.00                        │
 └─────────────────────────────────────────┘
 ```
 
-#### Opciones de Ordenamiento
+Esto lleva a la página de **Orden**, donde puedes:
 
-- **N° Orden**: Orden de ingreso (#1, #2, #3...)
-- **Código**: Numérico ascendente
-- **Nombre**: Alfabético A-Z
-- **Precio**: De menor a mayor
-
-#### Acciones por Producto
-
-| Acción | Icono | Función |
-|--------|-------|---------|
-| Eliminar | 🗑️ | Quitar del pedido |
-| Observación | 📝 | Agregar nota especial |
-| Editar cantidad | ✏️ | Modificar cantidad |
-
----
+- Ver todos los productos seleccionados
+- Modificar cantidades
+- Eliminar productos
+- Agregar observaciones por producto
+- Ver el total del pedido
 
 ### 4.5 Paso 5: Exportar a Excel
 
-#### Al hacer clic en "Exportar a Excel"
+En la página de **Orden**:
 
-```
-┌─────────────────────────────────────────┐
-│ ✅ Exportación Exitosa                  │
-├─────────────────────────────────────────┤
-│ Archivo: OC_20501234567_trujillo_       │
-│         280301.xlsx                     │
-│                                         │
-│ 📊 Resumen:                             │
-│ • 5 productos                           │
-│ • 678 unidades totales                  │
-│ • S/ 8,154.00 subtotal                  │
-│ • S/ 9,621.72 con IGV (18%)             │
-│                                         │
-│ [📂 Abrir carpeta]  [📧 Enviar email]   │
-└─────────────────────────────────────────┘
-```
+1. Verificar que el **RUC** sea válido (8 o 11 dígitos)
+2. Tocar **"Descargar OC"**
+3. Confirmar los datos en el modal
+4. El archivo se descargará automáticamente
 
-#### Formato del Archivo Excel
-
-```
-┌─────────┬────────┬────────┬──────────┬────────┬──────────────┐
-│   RUC   │   OC   │  SKU   │ CANTIDAD │ PRECIO │ OBSERVACIONES│
-├─────────┼────────┼────────┼──────────┼────────┼──────────────┤
-│205012345│ 280301 │ 03437  │  100.00  │  5.01  │Entregar tienda│
-│  67     │        │        │          │        │              │
-├─────────┼────────┼────────┼──────────┼────────┼──────────────┤
-│205012345│ 280301 │ 03438  │   50.00  │  5.01  │              │
-│  67     │        │        │          │        │              │
-├─────────┼────────┼────────┼──────────┼────────┼──────────────┤
-│205012345│ 280301 │ 01240  │  120.00  │  8.33  │ Urgente      │
-│  67     │        │        │          │        │              │
-├─────────┼────────┼────────┼──────────┼────────┼──────────────┤
-│205012345│ 280301 │ 77164  │  360.00  │  0.90  │              │
-│  67     │        │        │          │        │              │
-└─────────┴────────┴────────┴──────────┴────────┴──────────────┘
-```
+**Nombre del archivo**: `OC_{RUC}_{Provincia}_{OC}.xlsx`
 
 ---
 
 ## 5. Funciones Avanzadas
 
-### 5.1 Recuperación de Pedidos
+### 5.1 Cargar Pedido desde Excel
 
 Si necesitas continuar un pedido anterior:
 
-```
-1. Ir a la sección "Recuperar Pedido"
+1. Tocar **"Cargar"** en la barra de navegación
 2. Seleccionar archivo Excel previamente exportado
-3. El sistema carga:
-   ✓ Datos del cliente
-   ✓ Productos y cantidades
-   ✓ Observaciones
-```
+3. El sistema cargará:
+   - ✓ Datos del cliente (RUC, OC)
+   - ✓ Productos y cantidades
+   - ✓ Observaciones
 
-**Caso de uso**: Cliente llama para agregar más productos a pedido existente
+**Nota**: Si ya hay productos en el carrito, preguntará si desea reemplazarlos.
 
-### 5.2 Sincronización de Stock
+### 5.2 Modo Oscuro/Claro
 
-#### Stock Visual en Productos
+Tocar el botón 🌙/☀️ en el header para alternar.
 
-```
-┌─────────────────────────────────────────┐
-│ [03437] Folder A4 Celeste               │
-│ 💰 S/ 5.01  📦 50 un/caja              │
-│ 📊 Stock: 4,900 un (98 cajas)          │
-│ 🟢 Disponible                          │
-└─────────────────────────────────────────┘
-```
+El tema se **persiste** en el navegador, recuerda tu preferencia.
 
-**Otro ejemplo con diferente empaque:**
-```
-┌─────────────────────────────────────────┐
-│ [77164] Témpera Vinifan 30g Blanco      │
-│ 💰 S/ 0.90  📦 360 un/caja             │
-│ 📊 Stock: 41,666 un (115 cajas)        │
-│ 🟢 Disponible                          │
-└─────────────────────────────────────────┘
-```
+### 5.3 Sincronización
 
-**Ejemplo con bajo stock:**
-```
-┌─────────────────────────────────────────┐
-│ [016762] Fútbol Brasil #4               │
-│ 💰 S/ 39.00  📦 24 un/caja             │
-│ 📊 Stock: 169 un (7 cajas)             │
-│ 🟡 Stock Bajo                          │
-└─────────────────────────────────────────┘
-```
-
-#### Indicadores de Stock
-
-| Color | Significado | Acción |
-|-------|-------------|--------|
-| 🟢 Verde | Stock suficiente (>50) | Proceder normal |
-| 🟡 Amarillo | Stock bajo (10-50) | Verificar con almacén |
-| 🔴 Rojo | Stock crítico (<10) | Confirmar disponibilidad |
-| ⚪ Gris | Sin stock | No disponible |
-
-### 5.3 Atajos de Teclado (Desktop)
-
-| Tecla | Función |
-|-------|---------|
-| `Tab` | Siguiente campo |
-| `Enter` | Confirmar/Agregar |
-| `Esc` | Cerrar búsqueda |
-| `Ctrl + F` | Foco en buscador |
-| `Ctrl + S` | Guardar pedido |
+Tocar **"Actualizar"** para:
+- Recargar el catálogo de productos
+- Actualizar datos de stock
+- Recargar la página si hay problemas
 
 ---
 
-## 6. Consejos y Buenas Prácticas
+## 6. Solución de Problemas
 
-### 6.1 Optimización de Tiempo
-
-| Situación | Consejo |
-|-----------|---------|
-| Pedido grande | Exportar en lotes de 20 productos |
-| Cliente frecuente | Copiar datos del cliente anterior |
-| Mismo producto | Usar notación `10xBx` para cantidades grandes |
-| Revisión final | Ordenar por "N° Orden" para cotejar |
-
-### 6.2 Verificación antes de Exportar
-
-**Checklist de Calidad:**
-
-- [ ] RUC/DNI tiene 11 u 8 dígitos
-- [ ] Provincia está seleccionada
-- [ ] Todos los productos tienen cantidad > 0
-- [ ] Observaciones importantes están anotadas
-- [ ] El total parece razonable
-
-### 6.3 Manejo de Errores Comunes
-
-| Error | Prevención |
-|-------|------------|
-| RUC incorrecto | Validar en SUNAT antes |
-| Producto duplicado | Revisar lista antes de exportar |
-| Cantidad equivocada | Verificar equivalencia un/caja |
-| Archivo no descarga | Verificar conexión a internet |
-
----
-
-## 7. Solución de Problemas
-
-### 7.1 Problemas de Carga
+### 6.1 Problemas de Carga
 
 **La app no carga:**
 1. Verificar conexión a internet
@@ -446,33 +304,28 @@ Si necesitas continuar un pedido anterior:
 
 **Catálogo no aparece:**
 1. Esperar 30 segundos (primera carga)
-2. Recargar la página
-3. Contactar soporte si persiste
+2. Tocar "Actualizar"
+3. Recargar la página
 
-### 7.2 Problemas de Sincronización
-
-**Stock no se actualiza:**
-```
-1. Verificar conexión a internet
-2. Tocar botón 🔄 nuevamente
-3. Si falla: Esperar 5 minutos y reintentar
-4. Última opción: Limpiar datos del navegador
-```
-
-### 7.3 Problemas de Exportación
+### 6.2 Problemas de Exportación
 
 **Excel no se descarga:**
-- Verificar que RUC tenga 11 dígitos
-- Confirmar que provincia esté seleccionada
-- Asegurar que haya al menos 1 producto
+- Verificar que RUC tenga 8 u 11 dígitos
+- Confirmar que haya al menos 1 producto
 - Revisar espacio en disco
 
 **Datos incorrectos en Excel:**
-- Verificar modo Unidades/Cajas
+- Verificar cantidades ingresadas
 - Revisar precios en el catálogo
-- Confirmar cantidades ingresadas
 
-### 7.4 Contacto de Soporte
+### 6.3 Problemas con Carga XLSX
+
+**No carga el archivo:**
+- Verificar formato del archivo (xlsx o xls)
+- Asegurar que tenga columnas: SKU, CANTIDAD
+- Revisar que los códigos de producto existan en el catálogo
+
+### 6.4 Contacto de Soporte
 
 **¿Necesitas ayuda?**
 
@@ -486,33 +339,7 @@ Si necesitas continuar un pedido anterior:
 
 ## 📎 Anexos
 
-### Anexo A: Códigos de Error
-
-| Código | Descripción | Solución |
-|--------|-------------|----------|
-| ERR_001 | Catálogo no encontrado | Recargar página |
-| ERR_002 | Sincronización fallida | Reintentar en 5 min |
-| ERR_003 | Exportación inválida | Verificar campos obligatorios |
-| ERR_004 | Stock no disponible | Sincronizar stock |
-
-### Anexo B: Tabla de Productos de Ejemplo (Datos Reales)
-
-| SKU | Nombre del Producto | Unidades/Caja | Precio Unit. | Línea |
-|-----|---------------------|---------------|--------------|-------|
-| 03437 | Folder A4 Celeste Gusano | 50 | S/ 5.01 | ARCHIVO |
-| 03438 | Folder A4 Verde Limón Gusano | 50 | S/ 5.01 | ARCHIVO |
-| 03183 | Folder Oficio Verde Claro Gusano | 50 | S/ 5.14 | ARCHIVO |
-| 01240 | Pelota Crackcito Bl/Azl | 60 | S/ 8.33 | PELOTAS |
-| 77164 | Témpera Vinifan 30g Blanco | 360 | S/ 0.90 | PINTURA |
-| 016761 | Fútbol Argentina #4 | 24 | S/ 39.00 | PELOTAS |
-| 78480 | Folder Plástico Deadpool | 120 | S/ 6.64 | ARCHIVO |
-| 77125 | Colores Triangulares x12 | 288 | S/ 2.64 | PINTURA |
-| 72007 | Goma Barra Circular 21g | 384 | S/ 1.70 | PEGAMENTOS |
-| 79042 | Tijera Vinifan Oficina 20cm | 120 | S/ 4.75 | ACCESORIOS |
-
-**Nota:** Los precios y stock mostrados son referenciales y pueden variar. Siempre verifique la información actualizada en la aplicación.
-
-### Anexo C: Glosario
+### Anexo A: Glosario
 
 | Término | Significado |
 |---------|-------------|
@@ -521,10 +348,26 @@ Si necesitas continuar un pedido anterior:
 | **un** | Unidades individuales |
 | **OC** | Orden de Compra |
 | **IGV** | Impuesto General a las Ventas (18%) |
-| **IndexedDB** | Base de datos local del navegador |
+| **XLSX** | Formato de archivo Excel |
+| **PWA** | Progressive Web App |
+
+### Anexo B: Estructura del Archivo XLSX
+
+**Para cargar un pedido**, el Excel debe tener:
+
+```
+┌─────────┬────────┬────────┬──────────┬────────┬──────────────┐
+│   RUC   │   OC   │  SKU   │ CANTIDAD │ PRECIO │ OBSERVACIONES│
+├─────────┼────────┼────────┼──────────┼────────┼──────────────┤
+│205012345│ 280301 │ 03437  │  100.00  │  5.01  │              │
+│  67     │        │        │          │        │              │
+└─────────┴────────┴────────┴──────────┴────────┴──────────────┘
+```
+
+Columnas requeridas: **SKU** y **CANTIDAD**
 
 ---
 
-**Versión del Manual**: 1.2.1  
-**Última actualización**: 2026-03-01  
-**Aplicación**: Hoja de Pedido v1.2.1
+**Versión del Manual**: 1.3.0  
+**Última actualización**: 2026-03-05  
+**Aplicación**: Hoja de Pedido v1.3.0

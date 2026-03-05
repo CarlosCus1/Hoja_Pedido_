@@ -1,8 +1,8 @@
-# 📋 Hoja de Pedido v1.2.1
+# 📋 Hoja de Pedido v1.3.0
 
-Sistema de gestión de hojas de pedido para fuerza de ventas. Optimizado para móvil y desktop con sincronización de stock y catálogo de productos.
+Sistema de gestión de hojas de pedido para fuerza de ventas. Optimizado para móvil y desktop con navegación tipo app, sincronización de stock y catálogo de productos.
 
-![Versión](https://img.shields.io/badge/version-1.2.1-blue)
+![Versión](https://img.shields.io/badge/version-1.3.0-blue)
 ![React](https://img.shields.io/badge/React-18-61DAFB)
 ![Vite](https://img.shields.io/badge/Vite-5-646CFF)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-38B2AC)
@@ -13,14 +13,15 @@ Sistema de gestión de hojas de pedido para fuerza de ventas. Optimizado para m�
 ## 📑 Tabla de Contenidos
 
 - [Características Principales](#-características-principales)
+- [Novedades v1.3.0](#-novedades-v130)
 - [Estructura del Proyecto](#-estructura-del-proyecto)
 - [Instalación y Uso](#️-instalación-y-uso)
 - [Configuración del Catálogo](#-configuración-del-catálogo)
 - [Sincronización de Stock](#-sincronización-de-stock)
 - [Guía de Uso](#-guía-de-uso)
 - [Formato de Exportación Excel](#-formato-de-exportación-excel)
-- [Paleta de Colores](#-paleta-de-colores-corporativa)
-- [Arquitectura de Datos](#️-arquitectura-de-datos)
+- [Paleta de Colores](#-paleta-de-colores)
+- [Arquitectura](#️-arquitectura)
 - [Tecnologías Utilizadas](#-tecnologías-utilizadas)
 - [Notas Técnicas](#-notas-técnicas)
 - [Solución de Problemas](#-solución-de-problemas)
@@ -31,27 +32,41 @@ Sistema de gestión de hojas de pedido para fuerza de ventas. Optimizado para m�
 
 ## 🚀 Características Principales
 
-### 📱 Interfaz Responsive
-- **Modo Móvil**: Header compacto, tarjetas de productos táctiles, secciones colapsables
-- **Modo Desktop**: Tablas completas, atajos de teclado, vista optimizada
-- **Modo Oscuro/Claro**: Alternancia instantánea con persistencia
+### 📱 Interfaz Responsive con Navegación Tipo App
+- **Modo Móvil**: Barra de navegación inferior fija (5 accesos directos)
+- **Modo Desktop**: Sidebar lateral fijo + contenido principal
+- **Modo Oscuro/Claro**: Alternancia instantánea con persistencia local
+- **Glassmorphism**: Diseño moderno con efectos de transparencia
 
-### 🔄 Gestión de Cantidades
-- **Toggle Unidades/Bx**: Switch deslizante tipo iOS para cambiar modo de entrada
-- **Equivalencias Dinámicas**: Conversión automática Unidades ↔ Cajas en tiempo real
-- **Precios Adaptativos**: Precio por unidad o por caja según el modo
-- **Formato de Entrada**: Soporta números simples o notación "10xBx"
-
-### 📊 Orden de Ingreso
-- **Numeración Secuencial**: Cada producto recibe un número de orden (#1, #2, #3...)
-- **Ordenamiento Flexible**: Por orden de ingreso, código, nombre o precio
-- **Facilita Cotejo**: Permite verificar contra listas manuales escritas
+### 🔄 Gestión de Productos
+- **Búsqueda por Código/Nombre/EAN**: Búsqueda rápida y flexible
+- **Categorías con Filtros**: Pelotas, Escolar, Representadas
+- **Equivalencias Dinámicas**: Conversión automática Unidades ↔ Cajas
+- **Validación de Stock**: Advertencias antes de agregar al carrito
+- **Orden de Ingreso**: Numeración secuencial para cotejo con listas manuales
 
 ### 💾 Persistencia y Sincronización
-- **IndexedDB**: Almacenamiento local del catálogo y pedidos
-- **Sincronización de Stock**: Descarga automática vía GitHub Actions
-- **Recuperación de Pedidos**: Carga pedidos Excel previamente exportados
+- **localStorage**: Carrito y datos de cliente persistidos automáticamente
+- **Recuperación de Pedidos**: Cargar pedidos Excel previamente exportados
 - **Modo Offline**: Funciona sin conexión después de la primera carga
+
+### 📤 Exportación y Carga XLSX
+- **Exportar a Excel**: Archivo formato estándar con datos del cliente
+- **Cargar XLSX**: Importar pedidos guardados previamente
+
+---
+
+## 🆕 Novedades v1.3.0
+
+| Feature | Descripción |
+|---------|-------------|
+| **React Router v7** | Navegación SPA multi-página |
+| **Context API** | Estado global compartido (carrito, tema, cliente) |
+| **Navegación Móvil** | Barra inferior fija estilo app nativa |
+| **Sidebar PC** | Navegación lateral en pantallas grandes |
+| **Carga XLSX** | Importar pedidos desde archivos Excel |
+| **Tema Moderno** | Paleta Teal/Cyan con glassmorphism |
+| **Nueva Arquitectura** | Componentes, Context, Pages, Utils separados |
 
 ---
 
@@ -73,7 +88,7 @@ Hoja_de_Pedido/
 ├── 📁 public/                    # Archivos estáticos
 │   ├── 📄 productos_local.json  # Catálogo de productos
 │   ├── 📄 stock_data.json       # Datos de stock (generado)
-│   └── 📄 favicon.svg           # Icono de la app
+│   └── 📄 favicon.svg          # Icono de la app
 │
 ├── 📁 scripts/
 │   └── 📄 download-stock.js     # Script de sincronización
@@ -82,20 +97,36 @@ Hoja_de_Pedido/
 │   ├── 📄 server.js
 │   └── 📄 package.json
 │
-└── 📁 src/                       # Código fuente
+├── 📁 docs/
+│   └── 📄 MANUAL_USUARIO.md     # Manual de usuario
+│
+└── � src/                       # Código fuente
     ├── 📄 main.jsx              # Punto de entrada React
-    ├── 📄 App.jsx               # Componente principal
-    ├── 📄 index.css             # Estilos globales
+    ├── 📄 App.jsx              # Componente principal + Rutas
+    ├── 📄 index.css            # Estilos globales + CSS variables
+    │
+    ├── 📁 components/          # Componentes reutilizables
+    │   ├── 📄 PedidoModal.jsx  # Modal datos del cliente
+    │   └── 📄 Tooltip.jsx      # Tooltip informativo
+    │
+    ├── 📁 context/             # Estado global
+    │   └── 📄 AppContext.jsx   # Context API (carrito, tema, cliente)
+    │
+    ├── 📁 pages/               # Páginas principales
+    │   ├── 📄 Layout.jsx       # Layout con navegación
+    │   ├── 📄 CatalogoPage.jsx # Catálogo y búsqueda
+    │   └── 📄 OrdenPage.jsx    # Resumen y exportación
     │
     ├── 📁 hooks/
-    │   └── 📄 useDebounce.js    # Hook de debounce
+    │   └── 📄 useDebounce.js   # Hook de debounce
     │
     ├── 📁 services/
-    │   └── 📄 stockService.js   # Servicios de stock
+    │   └── 📄 stockService.js  # Servicios de stock
     │
     └── 📁 utils/
-        ├── 📄 formatters.js     # Formateadores de datos
-        └── 📄 xlsxGenerator.js  # Generador de Excel
+        ├── 📄 formatters.js    # Formateadores de datos
+        ├── 📄 xlsxGenerator.js # Generador de Excel
+        └── 📄 xlsxLoader.js    # Loader de archivos XLSX
 ```
 
 ---
@@ -149,7 +180,8 @@ public/
     "precio": 5.14,
     "ean": "7751832032908",
     "linea": "OFICIO",
-    "stock_referencial": 100
+    "stock_referencial": 100,
+    "orden": 1
   }
 ]
 ```
@@ -166,13 +198,7 @@ El sistema acepta múltiples nombres de campo y los normaliza automáticamente:
 | `ean` | `ean` | Código de barras |
 | `linea` | `linea` | Línea/Categoría |
 | `stock_referencial` / `stock` | `stock` | Stock disponible |
-
-### Actualización del Catálogo
-
-1. Reemplazar archivo `public/productos_local.json`
-2. Incrementar `DB_VERSION` en `src/App.jsx` (línea 47)
-3. Hacer commit y push (requiere permisos de escritura en el repositorio)
-4. Los usuarios verán el nuevo catálogo al recargar la app
+| `orden` | `orden` | Orden de aparición |
 
 ---
 
@@ -205,43 +231,39 @@ El sistema acepta múltiples nombres de campo y los normaliza automáticamente:
 └─────────────────┘
 ```
 
-### Sincronización Manual (Usuario)
-
-1. Hacer clic en el botón 🔄 (Sincronizar stock)
-2. El sistema descarga `stock_data.json` más reciente
-3. Los datos se guardan en IndexedDB
-4. Se muestra timestamp de última sincronización
-
 ---
 
 ## 💡 Guía de Uso
 
-### 1. Ingresar Datos del Cliente
-- RUC (11 dígitos) o DNI (8 dígitos) - **Obligatorio**
-- Nombre del cliente
-- OC/Referencia (se autogenera si está vacío: formato `ddmmyy`)
-- Provincia (para nombre de archivo Excel)
-- Dirección y Vendedor (opcionales)
+### Navegación
 
-### 2. Buscar y Agregar Productos
-1. Escribir código o nombre en el buscador
-2. Configurar modo: **Unidades** o **Bx** (cajas/bultos)
-3. Ingresar cantidad:
-   - Número simple: `100`
-   - Notación cajas: `10xBx`
-4. Seleccionar con checkbox o agregar individualmente
-5. Los productos aparecen con número de orden secuencial
+| Acceso | Descripción |
+|--------|-------------|
+| **Inicio** | Catálogo de productos con búsqueda |
+| **Catálogo** | Enlace externo al catálogo online |
+| **Cargar** | Importar pedido desde archivo Excel |
+| **Actualizar** | Recargar catálogos y datos |
+| **Cliente** | Datos del cliente (RUC, nombre, OC, dirección) |
 
-### 3. Gestionar Pedido
-- Ver equivalencias: "= 2.5 Bx" o "= 500 un"
-- Modificar cantidades directamente
-- Agregar observaciones por producto
-- Ordenar por: orden de ingreso, código, nombre, precio
+### Flujo de Trabajo
 
-### 4. Exportar
-- Hacer clic en "Exportar a Excel"
-- Archivo generado: `OC_{ruc}_{provincia}_{ddmmyy}.xlsx`
-- Formato: 6 columnas estándar (RUC, OC, SKU, CANTIDAD, PRECIO, OBS)
+1. **Ingresar Datos del Cliente**
+   - RUC (11 dígitos) o DNI (8 dígitos) - Obligatorio para exportar
+   - Nombre del cliente, OC/Referencia, Provincia, Dirección, Vendedor
+
+2. **Buscar y Agregar Productos**
+   - Escribir código, nombre o EAN en el buscador
+   - Seleccionar categoría (Todos, Pelotas, Escolar, Representadas)
+   - Configurar cantidad y agregar al carrito
+
+3. **Revisar Orden**
+   - Ver resumen de productos seleccionados
+   - Modificar cantidades o eliminar productos
+   - Validar datos del cliente
+
+4. **Exportar**
+   - Hacer clic en "Descargar OC"
+   - Archivo Excel: `OC_{ruc}_{provincia}_{oc}.xlsx`
 
 ---
 
@@ -261,90 +283,90 @@ El sistema acepta múltiples nombres de campo y los normaliza automáticamente:
 
 ---
 
-## 🎨 Paleta de Colores Corporativa
+## 🎨 Paleta de Colores
 
 ### Modo Claro
-- **Fondo**: `#f8fafc` (slate-50) - Azul muy suave
-- **Cards**: `#ffffff` (blanco)
-- **Primario**: `#4f46e5` (indigo-600)
-- **Texto**: `#1e293b` (slate-800)
-- **Bordes**: `#e2e8f0` (slate-200)
+- **Fondo**: `#f8fafc` (slate-50)
+- **Cards**: `#ffffff` con glassmorphism
+- **Primario**: `#0d9488` (teal-600)
+- **Acento**: `#06b6d4` (cyan-500)
+- **Texto**: `#0f172a` (slate-900)
 
 ### Modo Oscuro
-- **Fondo**: `#0f172a` (slate-900)
-- **Cards**: `#1e293b` (slate-800)
-- **Primario**: `#818cf8` (indigo-400)
-- **Texto**: `#e2e8f0` (slate-200)
-- **Bordes**: `#334155` (slate-700)
+- **Fondo**: `#020617` (slate-950)
+- **Cards**: `#0f172a` con glassmorphism
+- **Primario**: `#14b8a6` (teal-500)
+- **Acento**: `#22d3ee` (cyan-400)
+- **Texto**: `#f8fafc` (slate-50)
 
 ---
 
-## 🏗️ Arquitectura de Datos
+## 🏗️ Arquitectura
 
-### IndexedDB (Almacenamiento Local)
-
-| Store | Propósito | Persistencia |
-|-------|-----------|--------------|
-| `productos` | Catálogo de productos | Hasta actualización de versión |
-| `seleccion` | Pedido actual y datos cliente | Continua |
-| `stockAPI` | Stock sincronizado | Hasta nueva sincronización |
-
-### Flujo de Datos
+### Estado Global (Context API)
 
 ```
-Usuario abre app
-      ↓
-┌─────────────────┐
-│ ¿Hay caché?     │
-└────────┬────────┘
-   SÍ    │    NO
-    ↓    │     ↓
-Cargar   │   Fetch
-IndexedDB│   productos_
-         │   local.json
-         │      ↓
-         │   Guardar en
-         │   IndexedDB
-         │      ↓
-      └──┴──┐
-            ▼
-     Mostrar UI
-            ↓
-   ┌────────────────┐
-   │ Usuario navega │
-   └────────────────┘
+AppContext
+├── selectedProducts     # Carrito de compras
+├── clientData          # Datos del cliente (RUC, nombre, OC, etc.)
+├── isDarkMode          # Tema claro/oscuro
+├── showPedidoModal     # Control del modal de cliente
+│
+└── Métodos:
+    ├── addToCart()
+    ├── removeFromCart()
+    ├── updateCartQuantity()
+    ├── clearCart()
+    ├── updateClientData()
+    └── toggleTheme()
 ```
+
+### Rutas (React Router)
+
+| Ruta | Componente | Descripción |
+|------|-------------|-------------|
+| `/` | Redirect → `/catalogo` | Redirección |
+| `/catalogo` | CatalogoPage | Catálogo y búsqueda |
+| `/orden` | OrdenPage | Resumen y exportación |
+
+### Persistencia (localStorage)
+
+| Clave | Contenido |
+|-------|------------|
+| `hoja_pedido_cart` | Carrito de productos |
+| `hoja_pedido_client` | Datos del cliente |
+| `hoja_pedido_order_index` | Índice de orden |
+| `hoja_pedido_theme` | Tema claro/oscuro |
 
 ---
 
 ## 🔧 Tecnologías Utilizadas
 
 - **React 18** - Framework UI
+- **React Router v7** - Navegación SPA
 - **Vite 5** - Build tool y dev server
 - **Tailwind CSS 3** - Framework CSS utilitario
-- **IndexedDB** - Almacenamiento local del navegador
-- **XLSX (SheetJS)** - Generación de archivos Excel
-- **Lucide React** - Iconos
+- **XLSX (SheetJS)** - Generación y parsing de archivos Excel
+- **localStorage** - Persistencia de datos
 
 ---
 
 ## 📝 Notas Técnicas
 
 ### Versionado
-- **APP_VERSION**: `v1.2.1` (versión de la aplicación)
-- **DB_VERSION**: `5` (versión de la base de datos IndexedDB)
-- Incrementar `DB_VERSION` fuerza recarga del catálogo
+- **APP_VERSION**: `v1.3.0` (versión de la aplicación)
 
 ### Variables de Entorno (opcional)
 Crear archivo `.env`:
 ```
 VITE_API_URL=https://api.ejemplo.com
+VITE_BASE_PATH=/Hoja_de_Pedido
 VITE_APP_NAME=Hoja de Pedido
 ```
 
 ### Límites Conocidos
-- IndexedDB: ~50MB (depende del navegador)
-- Búsqueda: Máximo 50 resultados visibles
+- Catálogo: ~5000 productos (optimizado con paginado)
+- Búsqueda: 30 productos por página
 - Exportación: Sin límite de productos
 
 ---
@@ -355,15 +377,11 @@ VITE_APP_NAME=Hoja de Pedido
 
 | Problema | Causa Posible | Solución |
 |----------|---------------|----------|
-| No carga el catálogo | Versión de DB desactualizada | Incrementar `DB_VERSION` en App.jsx |
-| Stock no se sincroniza | Problema de red o repo | Verificar conexión y permisos del repo |
-| Exportación falla | Datos incompletos | Verificar que RUC y Provincia estén llenos |
-| Pérdida de pedido | Limpieza de navegador | Recuperar desde archivo Excel exportado |
-| App lenta | Muchos productos en pedido | Exportar y crear nuevo pedido |
-
-### Contacto de Soporte
-- Desarrollador: Carlos Cusi
-- Email: [tu-email@ejemplo.com]
+| No carga el catálogo | Error de red | Recargar la página |
+| Stock no se sincroniza | Problema de red o repo | Verificar conexión y permisos |
+| Exportación falla | RUC inválido o sin productos | Verificar datos completos |
+| Pérdida de pedido | Limpieza de navegador | Recuperar desde Excel exportado |
+| Iconos no cargan | Sin conexión a Google Fonts | Los iconos fallback no están implementados |
 
 ---
 
@@ -371,7 +389,7 @@ VITE_APP_NAME=Hoja de Pedido
 
 **Desarrollador**: Carlos Cusi  
 **Asistencia de código**: Kilo Code - Coding Assistant  
-**Última actualización**: 2026-03-01
+**Última actualización**: 2026-03-05
 
 ---
 
@@ -381,5 +399,5 @@ Proyecto privado - Uso exclusivo para fuerza de ventas.
 
 ---
 
-**Versión**: 1.2.1  
+**Versión**: 1.3.0  
 **Estado**: ✅ Estable y listo para producción
