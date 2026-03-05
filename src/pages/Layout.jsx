@@ -153,7 +153,7 @@ function Layout() {
       
       // 2. Descargar catálogo de productos
       console.log('📥 Descargando catálogo...');
-      const catalogResponse = await fetch('./productos_local.json?t=' + Date.now());
+      const catalogResponse = await fetch('/productos_local.json?t=' + Date.now());
       if (!catalogResponse.ok) {
         throw new Error('No se pudo descargar catálogo');
       }
@@ -235,7 +235,7 @@ function Layout() {
   // Cargar productos al carrito
   const loadProductsToCart = async (clientData, products) => {
     try {
-      const response = await fetch('./productos_local.json?t=' + Date.now(), {
+      const response = await fetch('/productos_local.json?t=' + Date.now(), {
         signal: abortControllerRef.current.signal
       });
       if (!response.ok) {

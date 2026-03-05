@@ -64,7 +64,7 @@ function useProductos() {
     
     try {
       // Cargar catálogo de productos
-      const response = await fetch('./productos_local.json?t=' + Date.now(), {
+      const response = await fetch('/productos_local.json?t=' + Date.now(), {
         signal: abortControllerRef.current.signal
       });
       if (!response.ok) throw new Error('No se pudo cargar el catálogo');
