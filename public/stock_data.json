@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-05T20:05:14.031Z",
+  "timestamp": "2026-03-05T20:43:00.374Z",
   "almacen": "VES",
   "count": 1666,
   "data": [
@@ -1821,7 +1821,7 @@
     },
     {
       "sku": "11048",
-      "disponible": 40296
+      "disponible": 40290
     },
     {
       "sku": "14001",
