@@ -2,24 +2,32 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0;url=index.html">
   <title>Redirecting...</title>
   <script>
     // Redirigir todas las rutas a index.html para que React Router las maneje
-    var path = window.location.pathname;
-    var search = window.location.search || '';
-    var hash = window.location.hash || '';
-    
-    // Si ya es index.html, no hacer nada
-    if (path === '/index.html') {
-      window.location.href = '/' + search + hash;
-    } else {
+    (function() {
+      var path = window.location.pathname;
+      var search = window.location.search || '';
+      var hash = window.location.hash || '';
+      
+      // Si ya es index.html o la raíz, no hacer nada
+      if (path === '/index.html' || path === '/Hoja_Pedido_/index.html' || path === '/') {
+        return;
+      }
+      
       // Redirigir a la ruta base con los parámetros y hash
-      var basePath = '/Hoja_Pedido_/';
-      window.location.href = basePath + 'index.html' + search + hash;
-    }
+      window.location.href = '/Hoja_Pedido_/index.html' + search + hash;
+    })();
   </script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; text-align: center; }
+  </style>
 </head>
 <body>
-  <p>Redirecting...</p>
+  <p>Redirecting to app...</p>
+  <noscript>
+    <p>If you are not redirected, <a href="/Hoja_Pedido_/index.html">click here</a>.</p>
+  </noscript>
 </body>
 </html>
