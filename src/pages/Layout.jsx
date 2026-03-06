@@ -8,6 +8,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useRef, useEffect, useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { loadExcelFile } from '../utils/xlsxLoader';
+import { getBaseUrl } from '../utils/baseUrl';
 import Tooltip from '../components/Tooltip';
 
 // Componente de Modal de Confirmación reutilizable
@@ -145,7 +146,7 @@ function Layout() {
       
       // 1. Descargar stock fresco del servidor
       console.log('📥 Descargando stock...');
-      const stockResponse = await fetch('./stock_data.json?t=' + Date.now());
+      const stockResponse = await fetch(`${getBaseUrl()}stock_data.json?t=${Date.now()}`);
       if (!stockResponse.ok) {
         throw new Error('No se pudo descargar stock');
       }
@@ -153,7 +154,7 @@ function Layout() {
       
       // 2. Descargar catálogo de productos
       console.log('📥 Descargando catálogo...');
-      const catalogResponse = await fetch('/productos_local.json?t=' + Date.now());
+      const catalogResponse = await fetch(`${getBaseUrl()}productos_local.json?t=${Date.now()}`);
       if (!catalogResponse.ok) {
         throw new Error('No se pudo descargar catálogo');
       }
@@ -235,7 +236,7 @@ function Layout() {
   // Cargar productos al carrito
   const loadProductsToCart = async (clientData, products) => {
     try {
-      const response = await fetch('/productos_local.json?t=' + Date.now(), {
+      const response = await fetch(`${getBaseUrl()}productos_local.json?t=${Date.now()}`, {
         signal: abortControllerRef.current.signal
       });
       if (!response.ok) {

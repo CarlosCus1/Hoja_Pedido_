@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { getBaseUrl } from '../utils/baseUrl';
 
 // Nombre de la base de datos
 const DB_NAME = 'HojaPedidoDB';
@@ -141,7 +142,7 @@ export async function fetchStockFromAPI() {
     // Intentar cargar desde el archivo generado por GitHub Actions
     // Agregar timestamp para evitar caché del navegador
     const cacheBuster = `?_=${Date.now()}`;
-    const response = await fetch(`./stock_data.json${cacheBuster}`, { 
+    const response = await fetch(`${getBaseUrl()}stock_data.json${cacheBuster}`, { 
       signal: AbortSignal.timeout(10000) // Timeout de 10 segundos para archivo grande
     });
 

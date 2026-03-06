@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { useDebounce } from '../hooks/useDebounce';
 import { useApp } from '../context/AppContext';
 import { formatMoney } from '../utils/formatters';
+import { getBaseUrl } from '../utils/baseUrl';
 import Tooltip from '../components/Tooltip';
 
 // Grupos de categorías (agrupaciones de líneas)
@@ -64,7 +65,7 @@ function useProductos() {
     
     try {
       // Cargar catálogo de productos
-      const response = await fetch('/productos_local.json?t=' + Date.now(), {
+      const response = await fetch(`${getBaseUrl()}productos_local.json?t=${Date.now()}`, {
         signal: abortControllerRef.current.signal
       });
       if (!response.ok) throw new Error('No se pudo cargar el catálogo');
