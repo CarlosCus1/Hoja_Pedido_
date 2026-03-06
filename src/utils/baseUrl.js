@@ -17,9 +17,9 @@ const getViteBase = () => {
   const baseFromMeta = document.querySelector('meta[name="vite-base"]');
   if (baseFromMeta) {
     const value = baseFromMeta.getAttribute('content');
-    // Validar que no sea null o vacío
+    // Validar que no sea null o vacío y asegurar que termina con /
     if (value && value !== 'null') {
-      return value;
+      return value.endsWith('/') ? value : value + '/';
     }
   }
   console.warn('Advertencia: meta tag "vite-base" no encontrado o vacío');
@@ -35,5 +35,7 @@ export const getBaseUrl = () => {
   
   const envBasePath = (import.meta.env.VITE_BASE_PATH || '').trim();
   const isGitHubPages = typeof window !== 'undefined' && window.location.hostname.includes('github.io');
-  return envBasePath || (isGitHubPages ? '/Hoja_Pedido_' : '/');
+  const basePath = envBasePath || (isGitHubPages ? '/Hoja_Pedido_' : '/');
+  // Asegurar que siempre termina con /
+  return basePath.endsWith('/') ? basePath : basePath + '/';
 };

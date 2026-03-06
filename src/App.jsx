@@ -42,6 +42,7 @@ function AppContent() {
           <Route path="/" element={<Navigate to="/catalogo" replace />} />
           <Route path="/catalogo" element={<CatalogoPage />} />
           <Route path="/orden" element={<OrdenPage />} />
+          <Route path="*" element={<Navigate to="/catalogo" replace />} />
         </Route>
       </Routes>
       
