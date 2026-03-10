@@ -127,18 +127,10 @@ async function setupBranchProtection() {
         // Dismissar revisiones cuando se hace push
         dismiss_stale_reviews: true,
         // Requiere revisión del code owner
-        require_code_owner_reviews: false,
-        // Restringir quién puede aprobar
-        restriction_users: [],
-        restriction_teams: []
+        require_code_owner_reviews: false
       },
       // No permitir pushes directos EXCEPTO de GitHub Actions
       required_status_checks: null,
-      // Proteger esta rama
-      protection: {
-        enabled: true,
-        required_status_checks: null
-      },
       // Restrictions (null = solo admins pueden hacer push)
       restrictions: null,
       // Allow force pushes (false = no permitir)
@@ -148,18 +140,12 @@ async function setupBranchProtection() {
       // Require conversation resolution
       require_conversation_resolution: true,
       // Require signed commits (opcional)
-      require_signed_commits: false,
-      // Require linear history
-      require_linear_history: false,
-      // Include administrators (true = las reglas aplican también a admins)
-      // NOTA: Esto está controlada por la configuración de enforce_admins
-      include_administrators: false,
-      // Lock branch
-      lock_branch: false
+      require_signed_commits: false
     };
 
     // Aplicar protección usando el endpoint correcto de GitHub API
     const protectionPath = `/repos/${config.owner}/${config.repo}/branches/${config.branch}/protection`;
+    
     const protectionResponse = await githubRequest(
       'PUT',
       protectionPath,
