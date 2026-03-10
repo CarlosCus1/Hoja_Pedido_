@@ -118,8 +118,19 @@ function useProductos() {
       loadData(true); // Forzar recarga
     };
     
+    // Escuchar evento de catálogo expirado (nuevo día)
+    const handleCatalogExpired = (event) => {
+      console.log('📅 Evento catalog-expired recibido, recargando catálogo...', event.detail);
+      dataLoadedRef.current = false; // Permitir recarga
+      loadData(true); // Forzar recarga
+    };
+    
     window.addEventListener('stock-updated', handleStockUpdate);
-    return () => window.removeEventListener('stock-updated', handleStockUpdate);
+    window.addEventListener('catalog-expired', handleCatalogExpired);
+    return () => {
+      window.removeEventListener('stock-updated', handleStockUpdate);
+      window.removeEventListener('catalog-expired', handleCatalogExpired);
+    };
   }, [loadData]);
 
   // Cleanup al desmontar

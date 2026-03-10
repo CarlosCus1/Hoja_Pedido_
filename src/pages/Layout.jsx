@@ -5,7 +5,7 @@
  */
 
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { loadExcelFile } from '../utils/xlsxLoader';
 import { getBaseUrl } from '../utils/baseUrl';
@@ -81,6 +81,100 @@ function Layout() {
   // Estado para timestamp de última sincronización de stock
   const [lastStockSync, setLastStockSync] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [catalogDate, setCatalogDate] = useState(null); // Fecha del catálogo cargado
+  const autoRefreshDoneRef = useRef(false); // Flag para evitar múltiples auto-refresh
+  
+  // Función para obtener la fecha actual en formato YYYYMMDD
+  const getCurrentDateString = () => {
+    const now = new Date();
+    return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+  };
+  
+  // Función para cargar timestamps desde localStorage al iniciar
+  const loadTimestampsFromStorage = useCallback(() => {
+    // Cargar lastStockSync
+    try {
+      const savedStockSync = localStorage.getItem('hoja_pedido_stock_sync');
+      if (savedStockSync) {
+        const parsed = JSON.parse(savedStockSync);
+        setLastStockSync(parsed);
+        console.log('📡 Timestamp de stock cargado:', parsed);
+      }
+      
+      // Cargar fecha del catálogo
+      const savedCatalogDate = localStorage.getItem('hoja_pedido_catalog_date');
+      if (savedCatalogDate) {
+        setCatalogDate(savedCatalogDate);
+        console.log('📚 Fecha de catálogo cargada:', savedCatalogDate);
+      }
+    } catch (e) {
+      console.warn('Error al cargar timestamps desde localStorage:', e);
+    }
+  }, []);
+  
+  // Función para verificar si el stock necesita actualizarse (más de 1 hora)
+  const shouldUpdateStock = useCallback(() => {
+    if (!lastStockSync) return true; // Nunca se ha actualizado
+    
+    const now = new Date();
+    const lastUpdate = new Date(lastStockSync);
+    const diffMinutes = (now - lastUpdate) / (1000 * 60);
+    
+    return diffMinutes > 60; // Más de 1 hora
+  }, [lastStockSync]);
+  
+  // Función para verificar si el catálogo necesita actualizarse (nuevo día)
+  const shouldUpdateCatalog = useCallback(() => {
+    const currentDate = getCurrentDateString();
+    
+    // Si no hay fecha guardada, necesita actualización
+    if (!catalogDate) return true;
+    
+    // Si la fecha guardada es diferente a la actual, necesita actualización
+    return catalogDate !== currentDate;
+  }, [catalogDate]);
+  
+  // Cargar timestamps al montar el componente
+  useEffect(() => {
+    loadTimestampsFromStorage();
+  }, [loadTimestampsFromStorage]);
+  
+  // Verificar y actualizar automáticamente stock y catálogo al iniciar
+  useEffect(() => {
+    // Evitar ejecución múltiples veces
+    if (autoRefreshDoneRef.current) return;
+    
+    const autoRefresh = async () => {
+      autoRefreshDoneRef.current = true; // Marcar como ejecutado antes de iniciar
+      
+      // Verificar stock
+      if (shouldUpdateStock()) {
+        console.log('⏰ Stock desactualizado (más de 1 hora), actualizando...');
+        await performRefresh();
+      } else {
+        console.log('✅ Stock vigente:', lastStockSync);
+      }
+      
+      // Verificar catálogo (después de actualizar stock)
+      if (shouldUpdateCatalog()) {
+        console.log('📅 Nuevo día detectado, actualizando catálogo...');
+        // Limpiar caché del catálogo en CatalogoPage
+        window.dispatchEvent(new CustomEvent('catalog-expired', { detail: { date: getCurrentDateString() } }));
+        // Actualizar fecha del catálogo
+        const currentDate = getCurrentDateString();
+        localStorage.setItem('hoja_pedido_catalog_date', currentDate);
+        setCatalogDate(currentDate);
+      } else {
+        console.log('✅ Catálogo vigente:', catalogDate);
+      }
+    };
+    
+    // Ejecutar solo una vez después de que lastStockSync tenga un valor (cargado desde storage)
+    // No necesitamos esperar catalogDate ya que puede ser null (primera vez)
+    if (lastStockSync !== null) {
+      autoRefresh();
+    }
+  }, [lastStockSync, catalogDate, shouldUpdateStock, shouldUpdateCatalog]);
   
   // Estado para modales de confirmación y alerta
   const [modals, setModals] = useState({
@@ -171,6 +265,11 @@ function Layout() {
       localStorage.setItem('hoja_pedido_stock', JSON.stringify(syncInfo));
       localStorage.setItem('hoja_pedido_stock_sync', JSON.stringify(syncInfo.timestamp));
       setLastStockSync(syncInfo.timestamp);
+      
+      // 3b. Guardar fecha del catálogo (formato YYYYMMDD)
+      const currentDate = getCurrentDateString();
+      localStorage.setItem('hoja_pedido_catalog_date', currentDate);
+      setCatalogDate(currentDate);
       
       const elapsed = Date.now() - startTime;
       console.log(`✅ Actualización completada en ${elapsed}ms`);

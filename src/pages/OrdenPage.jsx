@@ -28,24 +28,19 @@ function OrdenPage() {
   const [showExportConfirm, setShowExportConfirm] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const hasRedirectedRef = useRef(false);
-  const redirectTimeoutRef = useRef(null);
 
   // Redirigir al catálogo si la orden está vacía (con protección contra bucles)
   useEffect(() => {
+    // Solo redirigir si hay productos Y el usuario acaba de llegar (sin datos del cliente)
+    // O si el carrito quedó vacío después de una actualización
     if (selectedProductsArray.length === 0 && !hasRedirectedRef.current) {
       hasRedirectedRef.current = true;
       // Pequeño delay para evitar redirecciones rápidas durante transiciones
-      redirectTimeoutRef.current = setTimeout(() => {
+      const timer = setTimeout(() => {
         navigate('/catalogo', { replace: true });
-      }, 100);
+      }, 500);
+      return () => clearTimeout(timer);
     }
-
-    // Cleanup: cancelar timeout si el componente se desmonta
-    return () => {
-      if (redirectTimeoutRef.current) {
-        clearTimeout(redirectTimeoutRef.current);
-      }
-    };
   }, [selectedProductsArray.length, navigate]);
 
   // Calcular cajas
@@ -100,6 +95,8 @@ function OrdenPage() {
   const confirmClear = () => {
     clearCart();
     setShowClearConfirm(false);
+    // Redirigir al catálogo después de vaciar
+    navigate('/catalogo', { replace: true });
   };
 
   return (
@@ -295,21 +292,21 @@ function OrdenPage() {
 
       {/* Botones de acción */}
       {selectedProductsArray.length > 0 && (
-        <div className="fixed bottom-16 left-4 right-4 z-40">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-3">
+        <div className="fixed bottom-[4.25rem] lg:bottom-[4.125rem] left-auto right-4 z-40">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-2 sm:p-3">
             <div className="flex gap-2">
               <button
                 onClick={() => setShowClearConfirm(true)}
-                className="px-4 py-3 bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/30 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 rounded-lg font-bold text-sm transition-colors"
+                className="px-3 py-2 sm:px-4 sm:py-3 bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/30 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 rounded-lg font-bold text-xs sm:text-sm transition-colors"
               >
                 Vaciar
               </button>
               <button
                 onClick={handleExport}
                 disabled={!validarDocumento(clientData.ruc)}
-                className="flex-1 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-lg shadow-teal-600/25"
+                className="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-2 sm:py-3 px-3 sm:px-4 rounded-lg font-bold text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-2 transition-colors shadow-lg shadow-teal-600/25 whitespace-nowrap"
               >
-                <span className="material-symbols-outlined">download</span>
+                <span className="material-symbols-outlined text-sm sm:text-base">download</span>
                 Descargar OC
               </button>
             </div>

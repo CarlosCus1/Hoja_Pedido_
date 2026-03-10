@@ -45,8 +45,31 @@ export function getFechaActual() {
  */
 export function validarDocumento(documento) {
   if (!documento) return false;
-  const cleanValue = documento.replace(/\D/g, '');
+  const cleanValue = sanitizeDocumento(documento);
   return cleanValue.length === 8 || cleanValue.length === 11;
+}
+
+/**
+ * Sanitiza un documento eliminando caracteres especiales no válidos
+ * Elimina: * @ # $ % & ! y cualquier carácter no alfanumérico
+ * @param {string} documento - Número de documento a sanitizar
+ * @returns {string} - Documento sanitizado (solo dígitos)
+ */
+export function sanitizeDocumento(documento) {
+  if (!documento) return '';
+  // Eliminar cualquier carácter que no sea dígito o letra
+  return documento.replace(/[^0-9]/g, '');
+}
+
+/**
+ * Limpia el RUC/DNI eliminando caracteres especiales y retorna solo dígitos
+ * @param {string} documento - Número de documento
+ * @returns {string} - Solo dígitos
+ * @deprecated Usar sanitizeDocumento en su lugar
+ */
+export function cleanDocumento(documento) {
+  // Eliminar cualquier carácter que no sea dígito (incluye * @ # etc)
+  return sanitizeDocumento(documento);
 }
 
 /**
@@ -56,7 +79,7 @@ export function validarDocumento(documento) {
  */
 export function tipoDocumento(documento) {
   if (!documento) return 'Inválido';
-  const cleanValue = documento.replace(/\D/g, '');
+  const cleanValue = sanitizeDocumento(documento);
   if (cleanValue.length === 8) return 'DNI';
   if (cleanValue.length === 11) return 'RUC';
   return 'Inválido';

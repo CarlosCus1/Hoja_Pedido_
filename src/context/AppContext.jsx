@@ -132,18 +132,21 @@ export function AppProvider({ children }) {
     setIsDarkMode(prev => !prev);
   }, []);
 
-  // Persistir cambios en localStorage
+  // Persistir cambios en localStorage SOLO después de haber cargado los datos
   useEffect(() => {
+    if (!isHydrated) return; // No guardar hasta que esté hidratado
     saveToStorage(STORAGE_KEYS.CART, selectedProducts);
-  }, [selectedProducts]);
+  }, [selectedProducts, isHydrated]);
 
   useEffect(() => {
+    if (!isHydrated) return; // No guardar hasta que esté hidratado
     saveToStorage(STORAGE_KEYS.CLIENT, clientData);
-  }, [clientData]);
+  }, [clientData, isHydrated]);
 
   useEffect(() => {
+    if (!isHydrated) return; // No guardar hasta que esté hidratado
     saveToStorage(STORAGE_KEYS.ORDER_INDEX, nextOrderIndex);
-  }, [nextOrderIndex]);
+  }, [nextOrderIndex, isHydrated]);
 
   // Agregar producto al carrito
   const addToCart = useCallback((producto, cantidad = 1) => {

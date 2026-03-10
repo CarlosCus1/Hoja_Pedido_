@@ -52,12 +52,9 @@ function AppContent() {
 }
 
 function App() {
-  // Detectar basename usando variable de entorno de Vite o fallback a detección automática
-  // VITE_BASE_PATH se puede configurar en .env para dominios personalizados
-  const envBasePath = import.meta.env.VITE_BASE_PATH;
-  const isGitHubPages = typeof window !== 'undefined' && window.location.hostname.includes('github.io');
-  // IMPORTANTE: Coincidir con homepage en package.json: https://CarlosCus1.github.io/Hoja_Pedido_
-  const basename = envBasePath || (isGitHubPages ? '/Hoja_Pedido_' : '/');
+  // El base path está configurado en vite.config.js como '/Hoja_Pedido_'
+  // Usar siempre ese valor para desarrollo local y producción
+  const basename = '/Hoja_Pedido_';
 
   return (
     <BrowserRouter basename={basename}>
