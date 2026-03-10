@@ -4,7 +4,7 @@
  * Este script protege la rama principal de tu repositorio:
  * - Requiere Pull Request para hacer cambios
  * - Requiere aprobación de un mantenedor/admin
- * - No permite pushes directos a la rama main
+ * - Permite que GitHub Actions haga push directamente (bypass)
  * 
  * Uso:
  *   node scripts/setup-branch-protection.js
@@ -129,10 +129,6 @@ async function setupBranchProtection() {
         // Requiere revisión del code owner
         require_code_owner_reviews: false
       },
-      // No permitir pushes directos EXCEPTO de GitHub Actions
-      required_status_checks: null,
-      // Restrictions (null = solo admins pueden hacer push)
-      restrictions: null,
       // Allow force pushes (false = no permitir)
       allow_force_pushes: false,
       // Allow deletions (false = no permitir eliminar la rama)
@@ -179,42 +175,49 @@ async function setupBranchProtection() {
       console.log(`   ⚠️  Estado: ${prResponse.status}`);
     }
 
-    // 5. Configurar restricciones de admins - NO aplicar a GitHub Actions
-    console.log('5️⃣  Configurando excepciones para GitHub Actions...');
-    const adminPath = `/repos/${config.owner}/${config.repo}/branches/${config.branch}/protection/enforce_admins`;
-    const adminResponse = await githubRequest(
+    // 5. Configurar bypass para GitHub Actions
+    console.log('5️⃣  Configurando bypass para GitHub Actions...');
+    const bypassPath = `/repos/${config.owner}/${config.repo}/branches/${config.branch}/protection/access_control`;
+    const bypassResponse = await githubRequest(
       'PUT',
-      adminPath,
-      {
-        enabled: false // Los workflows podrán hacer push, pero usuarios normales no
-      }
-    );
-
-    if (adminResponse.status === 200) {
-      console.log('   ✅ Los GitHub Actions pueden hacer push directamente');
-      console.log('   ✅ Los usuarios normales NO pueden hacer push directo (requiere PR)');
-    }
-
-    // 6. Permitir que GitHub Actions haga push directamente
-    console.log('6️⃣  Configurando permisos para GitHub Actions...');
-    const pushPath = `/repos/${config.owner}/${config.repo}/branches/${config.branch}/protection/push_access_levels`;
-    const pushResponse = await githubRequest(
-      'PUT',
-      pushPath,
+      bypassPath,
       {
         users: [],
         teams: [],
-        apps: []
+        apps: ['GitHub Actions']
       }
     );
+
+    if (bypassResponse.status === 200 || bypassResponse.status === 201) {
+      console.log('   ✅ GitHub Actions puede hacer push directamente');
+    } else {
+      // Intentar método alternativo (legacy endpoint)
+      console.log('   ⚠️  Probando método alternativo...');
+      const altPath = `/repos/${config.owner}/${config.repo}/branches/${config.branch}/protection/push_access_levels`;
+      const altResponse = await githubRequest(
+        'PUT',
+        altPath,
+        {
+          users: [],
+          teams: [],
+          apps: ['GitHub Actions']
+        }
+      );
+      
+      if (altResponse.status === 200 || altResponse.status === 201) {
+        console.log('   ✅ GitHub Actions puede hacer push directamente (método alternativo)');
+      } else {
+        console.log(`   ⚠️  Estado: ${altResponse.status}`);
+        console.log('   ⚠️  Puede que necesites configurar esto manualmente en GitHub');
+      }
+    }
 
     console.log('\n🎉 ¡Configuración completada!\n');
     console.log('📋 Resumen de protecciones aplicadas:');
     console.log('   • Require Pull Request para hacer merge');
     console.log('   • Require al menos 1 aprobación');
-    console.log('   • No se permiten pushes directos a main');
-    console.log('   • Las reglas aplican a TODOS incluyendo administradores');
-    console.log('   • Solo tú (con token de admin) puedes hacer merge\n');
+    console.log('   • GitHub Actions puede hacer push directamente (bypass)');
+    console.log('   • Usuarios normales NO pueden hacer push directo (requiere PR)');
 
   } catch (error) {
     console.error('❌ Error durante la configuración:', error.message);

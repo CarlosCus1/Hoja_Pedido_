@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write  # Necesario para escribir al repositorio
   pages: write
   id-token: write
 
@@ -24,7 +24,8 @@ jobs:
       - name: Checkout código
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          ref: main
+          fetch-depth: 0
       
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -50,19 +51,15 @@ jobs:
       
       - name: Commit y push a main si hay cambios
         if: steps.verify-changes.outputs.has_changes == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add public/stock_data.json
           git commit -m "Actualizar stock desde appweb - $(date +'%Y-%m-%d %H:%M')"
-          git push https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}.git main
+          git push origin main
       
       - name: Copiar archivos a gh-pages
         if: steps.verify-changes.outputs.has_changes == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
           # Guardar los archivos actualizados temporalmente
           cp public/stock_data.json /tmp/stock_data.json
@@ -94,6 +91,6 @@ jobs:
           # Commit y push a gh-pages
           git add stock_data.json productos_local.json 404.html
           git commit -m "Sync: Actualizar stock y catálogo - $(date +'%Y-%m-%d %H:%M')" || echo "No hay cambios para commit"
-          git push https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}.git gh-pages
+          git push origin gh-pages
           
           # Volver a main (el trap EXIT también se ejecutará)

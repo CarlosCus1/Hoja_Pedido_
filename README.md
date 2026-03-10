@@ -398,19 +398,22 @@ VITE_APP_NAME=Hoja de Pedido
 
 ### Configuración de Protección
 
-#### 1. Crear Personal Access Token (requerido para el workflow)
+#### 1. Proteger rama principal (main) y permitir GitHub Actions
 
-El workflow necesita un token personal para evadir la protección de rama:
+El script configura la rama main para:
+- ✅ Require Pull Request para hacer merge
+- ✅ Require al menos 1 aprobación
+- ✅ **GitHub Actions puede hacer push directamente (bypass)**
 
-1. Ve a **GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)**
-2. Generate new token (classic)
-3. Selecciona el scope `repo` (control total)
-4. Copia el token generado
-5. Ve a **Settings → Secrets and variables → Actions → New repository secret**
-6. Nombre: `PERSONAL_ACCESS_TOKEN`
-7. Valor: pega tu token
+```bash
+# Configurar variables de entorno
+$env:GITHUB_TOKEN="tu_token_personal"
+$env:REPO_OWNER="tu_usuario"
+$env:REPO_NAME="Hoja_de_Pedido"
 
-#### 2. Proteger rama principal (main)
+# Ejecutar script
+node scripts/setup-branch-protection.js
+```
 
 ```bash
 # Configurar variables de entorno
