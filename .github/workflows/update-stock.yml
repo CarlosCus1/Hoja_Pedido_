@@ -44,7 +44,7 @@ jobs:
             echo "has_changes=true" >> $GITHUB_OUTPUT
           fi
       
-      - name: Crear rama y Pull Request
+      - name: Crear rama y PR
         if: steps.verify-changes.outputs.has_changes == 'true'
         run: |
           git config --local user.email "action@github.com"
@@ -58,13 +58,16 @@ jobs:
           git commit -m "Actualizar stock desde appweb - $(date +'%Y-%m-%d %H:%M')"
           git push origin "$BRANCH_NAME"
           
-          gh pr create \
-            --title "Actualizar Stock - $(date +'%Y-%m-%d')" \
-            --body "Este PR actualiza automaticamente el stock desde la appweb." \
-            --base main \
-            --head "$BRANCH_NAME"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Crear PR usando API REST
+          curl -X POST https://api.github.com/repos/${{ github.repository }}/pulls \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d '{
+              "title": "Actualizar Stock - "'"$(date +'%Y-%m-%d')"'",
+              "body": "Este PR actualiza automaticamente el stock desde la appweb.",
+              "head": "'"$BRANCH_NAME"'",
+              "base": "main"
+            }'
       
       - name: Copiar archivos a gh-pages
         if: steps.verify-changes.outputs.has_changes == 'true'
