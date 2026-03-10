@@ -195,6 +195,19 @@ async function setupBranchProtection() {
       console.log('   ✅ Los usuarios normales NO pueden hacer push directo (requiere PR)');
     }
 
+    // 6. Permitir que GitHub Actions haga push directamente
+    console.log('6️⃣  Configurando permisos para GitHub Actions...');
+    const pushPath = `/repos/${config.owner}/${config.repo}/branches/${config.branch}/protection/push_access_levels`;
+    const pushResponse = await githubRequest(
+      'PUT',
+      pushPath,
+      {
+        users: [],
+        teams: [],
+        apps: []
+      }
+    );
+
     console.log('\n🎉 ¡Configuración completada!\n');
     console.log('📋 Resumen de protecciones aplicadas:');
     console.log('   • Require Pull Request para hacer merge');

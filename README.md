@@ -398,7 +398,19 @@ VITE_APP_NAME=Hoja de Pedido
 
 ### Configuración de Protección
 
-#### 1. Proteger rama principal (main)
+#### 1. Crear Personal Access Token (requerido para el workflow)
+
+El workflow necesita un token personal para evadir la protección de rama:
+
+1. Ve a **GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)**
+2. Generate new token (classic)
+3. Selecciona el scope `repo` (control total)
+4. Copia el token generado
+5. Ve a **Settings → Secrets and variables → Actions → New repository secret**
+6. Nombre: `PERSONAL_ACCESS_TOKEN`
+7. Valor: pega tu token
+
+#### 2. Proteger rama principal (main)
 
 ```bash
 # Configurar variables de entorno
