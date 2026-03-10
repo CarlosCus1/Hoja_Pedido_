@@ -19,9 +19,11 @@ const https = require('https');
 
 // Configuración del repositorio
 const config = {
-  owner: process.env.REPO_OWNER || 'TU_USUARIO_GITHUB',
-  repo: process.env.REPO_NAME || 'TU_REPOSITORIO',
+  owner: process.env.REPO_OWNER || 'CarlosCus1',
+  repo: process.env.REPO_NAME || 'Hoja_Pedido_',
   branch: 'main', // Rama a proteger
+  // Tu usuario de GitHub (hará bypass de la protección)
+  adminUser: 'CarlosCus1'
 };
 
 // Token de GitHub con permisos de admin
@@ -182,14 +184,14 @@ async function setupBranchProtection() {
       'PUT',
       bypassPath,
       {
-        users: [],
+        users: [config.adminUser],  // Tu usuario hace bypass
         teams: [],
         apps: ['GitHub Actions']
       }
     );
 
     if (bypassResponse.status === 200 || bypassResponse.status === 201) {
-      console.log('   ✅ GitHub Actions puede hacer push directamente');
+      console.log(`   ✅ ${config.adminUser} y GitHub Actions pueden hacer push directamente`);
     } else {
       // Intentar método alternativo (legacy endpoint)
       console.log('   ⚠️  Probando método alternativo...');
@@ -198,14 +200,14 @@ async function setupBranchProtection() {
         'PUT',
         altPath,
         {
-          users: [],
+          users: [config.adminUser],
           teams: [],
           apps: ['GitHub Actions']
         }
       );
       
       if (altResponse.status === 200 || altResponse.status === 201) {
-        console.log('   ✅ GitHub Actions puede hacer push directamente (método alternativo)');
+        console.log(`   ✅ ${config.adminUser} y GitHub Actions pueden hacer push (método alternativo)`);
       } else {
         console.log(`   ⚠️  Estado: ${altResponse.status}`);
         console.log('   ⚠️  Puede que necesites configurar esto manualmente en GitHub');
@@ -216,8 +218,9 @@ async function setupBranchProtection() {
     console.log('📋 Resumen de protecciones aplicadas:');
     console.log('   • Require Pull Request para hacer merge');
     console.log('   • Require al menos 1 aprobación');
+    console.log(`   • ${config.adminUser} puede hacer push directamente (bypass)`);
     console.log('   • GitHub Actions puede hacer push directamente (bypass)');
-    console.log('   • Usuarios normales NO pueden hacer push directo (requiere PR)');
+    console.log('   • Otros usuarios requieren PR y aprobación');
 
   } catch (error) {
     console.error('❌ Error durante la configuración:', error.message);
