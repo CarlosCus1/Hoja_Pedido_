@@ -385,11 +385,73 @@ VITE_APP_NAME=Hoja de Pedido
 
 ---
 
+## 🛡️ Seguridad del Repositorio
+
+### Medidas Implementadas
+
+| Medida | Descripción | Estado |
+|--------|-------------|--------|
+| **Branch Protection (main)** | Requiere PR + 1 aprobación para hacer merge | ✅ Script disponible |
+| **Branch Protection (gh-pages)** | Rama de solo lectura, solo Actions puede escribir | ✅ Script disponible |
+| **Permisos Workflow** | Permisos mínimos: contents:read, pages:write, id-token:write | ✅ Implementado |
+| **Secrets** | Sin credenciales hardcodeadas en el código | ✅ Verificado |
+
+### Configuración de Protección
+
+#### 1. Proteger rama principal (main)
+
+```bash
+# Configurar variables de entorno
+$env:GITHUB_TOKEN="tu_token_personal"
+$env:REPO_OWNER="tu_usuario"
+$env:REPO_NAME="Hoja_de_Pedido"
+
+# Ejecutar script
+node scripts/setup-branch-protection.js
+```
+
+#### 2. Proteger rama de despliegue (gh-pages)
+
+```bash
+# Configurar variables de entorno
+$env:GITHUB_TOKEN="tu_token_personal"
+$env:REPO_OWNER="tu_usuario"
+$env:REPO_NAME="Hoja_de_Pedido"
+
+# Ejecutar script
+node scripts/setup-gh-pages-protection.js
+```
+
+### Permisos del Workflow
+
+El workflow [`update-stock.yml`](.github/workflows/update-stock.yml) usa el principio de menor privilegio:
+
+```yaml
+permissions:
+  contents: read    # Solo leer archivos
+  pages: write     # Escribir en GitHub Pages
+  id-token: write  # needed for pages deployment
+```
+
+### Recomendaciones Adicionales
+
+1. **Crear un Environment de producción** en GitHub (Settings → Environments)
+   - Nombre: `production`
+   - Requerir aprobación manual antes del despliegue
+
+2. **Configurar secrets** si el workflow necesita acceder a APIs externas:
+   - Ve a Settings → Secrets and variables → Actions
+   - Agrega las variables necesarias
+
+3. **Habilitar 2FA** en tu cuenta de GitHub para mayor seguridad
+
+---
+
 ## 🤝 Contribución
 
 **Desarrollador**: Carlos Cusi  
 **Asistencia de código**: Kilo Code - Coding Assistant  
-**Última actualización**: 2026-03-05
+**Última actualización**: 2026-03-10
 
 ---
 
