@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-08T22:28:50.144Z",
+  "timestamp": "2026-09-09T01:07:03.081Z",
   "almacen": "VES",
   "count": 1658,
   "data": [
@@ -3005,7 +3005,7 @@
     },
     {
       "sku": "212138",
-      "disponible": 3918
+      "disponible": 3838
     },
     {
       "sku": "212139",
@@ -3613,15 +3613,15 @@
     },
     {
       "sku": "72027",
-      "disponible": 21208
+      "disponible": 20488
     },
     {
       "sku": "72028",
-      "disponible": 29628
+      "disponible": 26268
     },
     {
       "sku": "72029",
-      "disponible": 53030
+      "disponible": 51350
     },
     {
       "sku": "72030",
